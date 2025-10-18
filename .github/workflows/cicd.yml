@@ -306,7 +306,7 @@ jobs:
           echo "=== Starting Validation ==="
 
           # Deploy with --dry-run flag to validate without deploying
-          # --source-path: what to deploy
+          # --source-dir: what to deploy
           # --test-level RunLocalTests: run all tests in your org
           # --target-org: which org to validate against
           # --wait: how long to wait for validation (in minutes)
@@ -516,7 +516,7 @@ jobs:
           rm server.key
           echo "✅ Authenticated to production org"
 
-      # STEP 8: Deploy to Salesforce (actual deployment)
+      # STEP 5: Deploy to Salesforce (actual deployment)
       - name: 🚀 Deploy to Salesforce
         id: deploy
         # Only run if there are changes to deploy
@@ -532,8 +532,7 @@ jobs:
           echo ""
           echo "📤 Deploying to Salesforce..."
           sf project deploy start \
-            --source-path force-app \
-            --test-level RunLocalTests \
+            --source-dir force-app \
             --target-org production-org \
             --wait 30 \
             --verbose
@@ -546,7 +545,7 @@ jobs:
           echo "📊 Deployment Summary:"
           sf project deploy report --target-org production-org || true
 
-      # STEP 9: Skip deployment notification
+      # STEP 6: Skip deployment notification
       - name: ⏭️ No Changes to Deploy
         # Only run if there are NO changes
         if: steps.check_deploy.outputs.has_changes != 'true'
@@ -559,7 +558,7 @@ jobs:
           echo "  - You only changed CI/CD configuration"
           echo "  - No force-app/ files were modified"
 
-      # STEP 10: Post deployment results
+      # STEP 7: Post deployment results
       - name: 💬 Post Deployment Results
         # Only run on pull requests, and always run (even if deployment fails)
         if: always() && github.event_name == 'pull_request'
