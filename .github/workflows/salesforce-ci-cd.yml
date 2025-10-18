@@ -1,0 +1,390 @@
+# =============================================================================
+# Salesforce CI/CD Pipeline
+# =============================================================================
+# This workflow automatically runs when a Pull Request (merge request) is created
+# It will: 1) Summarize changes, 2) Validate against Salesforce org, 3) Deploy code
+
+# Name of the workflow (appears in GitHub Actions tab)
+name: Salesforce CI/CD Pipeline
+
+# =============================================================================
+# TRIGGER CONDITIONS
+# =============================================================================
+# Define when this workflow should run
+on:
+  # Run on Pull Request events
+  pull_request:
+    # Trigger on these PR actions
+    types:
+      - opened       # When PR is first created
+      - synchronize  # When new commits are pushed to the PR
+      - reopened     # When a closed PR is reopened
+    # Only run when changes affect Salesforce code
+    paths:
+      - 'force-app/**'           # Any changes in force-app directory
+      - 'sfdx-project.json'      # Changes to SFDX project configuration
+      - 'manifest/**'            # Changes to deployment manifests
+
+  # Optional: Allow manual workflow trigger from GitHub UI
+  workflow_dispatch:
+    # Add input parameters for manual runs
+    inputs:
+      deploy_to_production:
+        description: 'Deploy to production?'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
+# These variables are available to all jobs in the workflow
+# You'll set the actual values in GitHub Settings > Secrets and Variables
+env:
+  # Salesforce API version to use (should match sfdx-project.json)
+  SF_API_VERSION: '64.0'
+
+  # Node.js version for running Salesforce CLI
+  NODE_VERSION: '18'
+
+  # Salesforce CLI version to install
+  SFDX_CLI_VERSION: 'latest'
+
+# =============================================================================
+# JOBS - The actual work to be done
+# =============================================================================
+jobs:
+
+  # ===========================================================================
+  # JOB 1: SUMMARIZE CHANGES
+  # ===========================================================================
+  # This job analyzes what files changed in the Pull Request
+  summarize-changes:
+    # Job display name in GitHub UI
+    name: 📝 Summarize Changes
+
+    # Use Ubuntu Linux as the virtual machine
+    runs-on: ubuntu-latest
+
+    # Save outputs from this job so other jobs can use them
+    outputs:
+      has_apex: ${{ steps.check_changes.outputs.has_apex }}
+      has_lwc: ${{ steps.check_changes.outputs.has_lwc }}
+      has_metadata: ${{ steps.check_changes.outputs.has_metadata }}
+      changed_files: ${{ steps.check_changes.outputs.changed_files }}
+
+    # Steps are individual tasks within the job
+    steps:
+      # STEP 1: Get the code from the repository
+      - name: 📥 Checkout Code
+        # Uses a pre-built action from GitHub marketplace
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history to compare changes
+          fetch-depth: 0
+
+      # STEP 2: Analyze what files were changed
+      - name: 🔍 Check Changed Files
+        id: check_changes
+        # Run shell commands to analyze changes
+        run: |
+          echo "=== Analyzing Changed Files ==="
+
+          # Get list of changed files between base branch and current branch
+          # git diff: compares two branches
+          # --name-only: only show file names (not content)
+          # origin/${{ github.base_ref }}: the target branch (e.g., main)
+          # HEAD: the current branch (the PR branch)
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD)
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Check if Apex classes changed (*.cls files)
+          if echo "$CHANGED_FILES" | grep -q "\.cls$"; then
+            echo "has_apex=true" >> $GITHUB_OUTPUT
+            echo "✅ Apex classes changed"
+          else
+            echo "has_apex=false" >> $GITHUB_OUTPUT
+            echo "⚪ No Apex changes"
+          fi
+
+          # Check if Lightning Web Components changed (lwc folder)
+          if echo "$CHANGED_FILES" | grep -q "lwc/"; then
+            echo "has_lwc=true" >> $GITHUB_OUTPUT
+            echo "✅ Lightning Web Components changed"
+          else
+            echo "has_lwc=false" >> $GITHUB_OUTPUT
+            echo "⚪ No LWC changes"
+          fi
+
+          # Check if any metadata changed (xml files)
+          if echo "$CHANGED_FILES" | grep -q "\.xml$\|\.object-meta\.xml$"; then
+            echo "has_metadata=true" >> $GITHUB_OUTPUT
+            echo "✅ Metadata changed"
+          else
+            echo "has_metadata=false" >> $GITHUB_OUTPUT
+            echo "⚪ No metadata changes"
+          fi
+
+          # Save changed files list (replace newlines with commas)
+          echo "changed_files=$(echo $CHANGED_FILES | tr '\n' ',')" >> $GITHUB_OUTPUT
+
+      # STEP 3: Create a comment on the PR with summary
+      - name: 💬 Post Summary Comment
+        # This action creates/updates a comment on the Pull Request
+        uses: actions/github-script@v7
+        with:
+          # JavaScript code to create the comment
+          script: |
+            const hasApex = '${{ steps.check_changes.outputs.has_apex }}' === 'true';
+            const hasLwc = '${{ steps.check_changes.outputs.has_lwc }}' === 'true';
+            const hasMetadata = '${{ steps.check_changes.outputs.has_metadata }}' === 'true';
+
+            // Build the comment message with emojis for visual appeal
+            const comment = `## 📊 Salesforce Changes Summary
+
+            **Components Changed:**
+            - ${hasApex ? '✅' : '⚪'} Apex Classes
+            - ${hasLwc ? '✅' : '⚪'} Lightning Web Components
+            - ${hasMetadata ? '✅' : '⚪'} Metadata (Objects, Fields, etc.)
+
+            **Next Steps:**
+            - ✅ Step 1: Summary (This step)
+            - ⏳ Step 2: Validation against Salesforce org
+            - ⏳ Step 3: Deployment
+
+            🤖 This comment is auto-generated by the CI/CD pipeline.`;
+
+            // Post the comment to the PR
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+  # ===========================================================================
+  # JOB 2: VALIDATE AGAINST SALESFORCE ORG
+  # ===========================================================================
+  # This job checks if the code can be deployed without actually deploying
+  validate-deployment:
+    # Job display name
+    name: ✅ Validate Deployment
+
+    # This job needs the summary job to complete first
+    needs: summarize-changes
+
+    # Run on Ubuntu Linux
+    runs-on: ubuntu-latest
+
+    steps:
+      # STEP 1: Get the code
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      # STEP 2: Set up Node.js (required for Salesforce CLI)
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Use version from environment variable
+          node-version: ${{ env.NODE_VERSION }}
+
+      # STEP 3: Install Salesforce CLI
+      - name: 📦 Install Salesforce CLI
+        run: |
+          echo "=== Installing Salesforce CLI ==="
+          # npm: Node Package Manager (installs software)
+          # -g: install globally (available everywhere)
+          # @salesforce/cli: the Salesforce CLI package
+          npm install -g @salesforce/cli@${{ env.SFDX_CLI_VERSION }}
+
+          # Verify installation
+          sf --version
+          echo "✅ Salesforce CLI installed successfully"
+
+      # STEP 4: Authenticate to Salesforce using JWT
+      - name: 🔐 Authenticate to Salesforce
+        run: |
+          echo "=== Authenticating to Salesforce ==="
+
+          # Create server.key file from the secret variable
+          # This is your private key for JWT authentication
+          # ${{ secrets.SF_JWT_KEY }} comes from GitHub Settings > Secrets
+          echo "${{ secrets.SF_JWT_KEY }}" > server.key
+
+          # Authenticate using JWT (JSON Web Token) flow
+          # This is a secure way to authenticate without password
+          sf org login jwt \
+            --client-id ${{ secrets.SF_CONSUMER_KEY }} \
+            --jwt-key-file server.key \
+            --username ${{ secrets.SF_USERNAME }} \
+            --instance-url ${{ secrets.SF_INSTANCE_URL }} \
+            --alias validation-org \
+            --set-default
+
+          # Remove the key file for security
+          rm server.key
+
+          echo "✅ Authentication successful"
+
+      # STEP 5: Validate the deployment (check only, don't deploy)
+      - name: 🔍 Validate Deployment
+        id: validate
+        run: |
+          echo "=== Starting Validation ==="
+
+          # Deploy with --dry-run flag to validate without deploying
+          # --source-path: what to deploy
+          # --test-level RunLocalTests: run all tests in your org
+          # --target-org: which org to validate against
+          # --wait: how long to wait for validation (in minutes)
+          sf project deploy start \
+            --source-path force-app \
+            --test-level RunLocalTests \
+            --target-org validation-org \
+            --dry-run \
+            --wait 30 \
+            --verbose
+
+          echo "✅ Validation completed successfully"
+
+      # STEP 6: Post validation results to PR
+      - name: 💬 Post Validation Results
+        if: always()  # Run even if validation fails
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const success = '${{ steps.validate.outcome }}' === 'success';
+            const comment = `## 🔍 Validation Results
+
+            ${success ? '✅ **Validation Passed!**' : '❌ **Validation Failed!**'}
+
+            ${success
+              ? 'Your changes can be safely deployed to Salesforce.'
+              : 'Please check the logs for errors and fix them before merging.'}
+
+            **Steps Completed:**
+            - ✅ Step 1: Summary
+            - ${success ? '✅' : '❌'} Step 2: Validation
+            - ⏳ Step 3: Deployment (pending)
+
+            [View Full Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+  # ===========================================================================
+  # JOB 3: DEPLOY TO SALESFORCE
+  # ===========================================================================
+  # This job actually deploys the code after PR is merged
+  deploy-to-salesforce:
+    # Job display name
+    name: 🚀 Deploy to Salesforce
+
+    # Only run this job if:
+    # 1. Validation passed
+    # 2. PR was merged (not just closed)
+    needs: validate-deployment
+
+    # Only run on the main branch (after PR is merged)
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # STEP 1: Get the code
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      # STEP 2: Setup Node.js
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # STEP 3: Install Salesforce CLI
+      - name: 📦 Install Salesforce CLI
+        run: |
+          npm install -g @salesforce/cli@${{ env.SFDX_CLI_VERSION }}
+          sf --version
+
+      # STEP 4: Authenticate to Salesforce
+      - name: 🔐 Authenticate to Salesforce
+        run: |
+          echo "${{ secrets.SF_JWT_KEY }}" > server.key
+
+          # For deployment, you might want to use production credentials
+          # Use SF_PROD_CONSUMER_KEY, SF_PROD_USERNAME, etc. for production
+          sf org login jwt \
+            --client-id ${{ secrets.SF_PROD_CONSUMER_KEY || secrets.SF_CONSUMER_KEY }} \
+            --jwt-key-file server.key \
+            --username ${{ secrets.SF_PROD_USERNAME || secrets.SF_USERNAME }} \
+            --instance-url ${{ secrets.SF_PROD_INSTANCE_URL || secrets.SF_INSTANCE_URL }} \
+            --alias production-org \
+            --set-default
+
+          rm server.key
+          echo "✅ Authenticated to production org"
+
+      # STEP 5: Deploy to Salesforce (actual deployment)
+      - name: 🚀 Deploy to Salesforce
+        id: deploy
+        run: |
+          echo "=== Starting Deployment ==="
+
+          # Deploy without --dry-run flag (this is real!)
+          sf project deploy start \
+            --source-path force-app \
+            --test-level RunLocalTests \
+            --target-org production-org \
+            --wait 30 \
+            --verbose
+
+          echo "✅ Deployment completed successfully!"
+
+      # STEP 6: Post deployment results
+      - name: 💬 Post Deployment Results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const success = '${{ steps.deploy.outcome }}' === 'success';
+            const comment = `## 🚀 Deployment Results
+
+            ${success ? '✅ **Deployment Successful!**' : '❌ **Deployment Failed!**'}
+
+            ${success
+              ? 'Your changes are now live in Salesforce! 🎉'
+              : 'Deployment failed. Please check the logs and contact the admin.'}
+
+            **All Steps Completed:**
+            - ✅ Step 1: Summary
+            - ✅ Step 2: Validation
+            - ${success ? '✅' : '❌'} Step 3: Deployment
+
+            **Deployment Time:** ${{ github.event.repository.updated_at }}
+
+            [View Full Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+      # STEP 7: Send notification on failure (optional)
+      - name: 📧 Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Please check the GitHub Actions logs for details"
+          # You can add email notification or Slack webhook here
