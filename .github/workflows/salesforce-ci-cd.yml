@@ -215,21 +215,39 @@ jobs:
         with:
           # Use version from environment variable
           node-version: ${{ env.NODE_VERSION }}
+          # Enable caching for npm to speed up installations
+          cache: 'npm'
+          cache-dependency-path: '**/package.json'
 
-      # STEP 3: Install Salesforce CLI
+      # STEP 3: Cache Salesforce CLI
+      - name: 💾 Cache Salesforce CLI
+        id: cache-sf-cli
+        uses: actions/cache@v3
+        with:
+          path: ~/.sf
+          key: sf-cli-${{ runner.os }}-${{ env.SFDX_CLI_VERSION }}
+          restore-keys: |
+            sf-cli-${{ runner.os }}-
+
+      # STEP 4: Install Salesforce CLI
       - name: 📦 Install Salesforce CLI
+        # Only install if not cached
+        if: steps.cache-sf-cli.outputs.cache-hit != 'true'
         run: |
           echo "=== Installing Salesforce CLI ==="
           # npm: Node Package Manager (installs software)
           # -g: install globally (available everywhere)
           # @salesforce/cli: the Salesforce CLI package
           npm install -g @salesforce/cli@${{ env.SFDX_CLI_VERSION }}
-
-          # Verify installation
-          sf --version
           echo "✅ Salesforce CLI installed successfully"
 
-      # STEP 4: Authenticate to Salesforce using JWT
+      # STEP 5: Verify Salesforce CLI
+      - name: ✓ Verify Salesforce CLI
+        run: |
+          sf --version
+          echo "✅ Salesforce CLI ready"
+
+      # STEP 6: Authenticate to Salesforce using JWT
       - name: 🔐 Authenticate to Salesforce
         run: |
           echo "=== Authenticating to Salesforce ==="
@@ -293,7 +311,7 @@ jobs:
 
           echo "✅ Authentication successful"
 
-      # STEP 5: Validate the deployment (check only, don't deploy)
+      # STEP 7: Validate the deployment (check only, don't deploy)
       - name: 🔍 Validate Deployment
         id: validate
         run: |
@@ -313,7 +331,7 @@ jobs:
 
           echo "✅ Validation completed successfully"
 
-      # STEP 6: Post validation results to PR
+      # STEP 8: Post validation results to PR
       - name: 💬 Post Validation Results
         # Only run on pull requests, and always run (even if validation fails)
         if: always() && github.event_name == 'pull_request'
@@ -346,18 +364,25 @@ jobs:
   # ===========================================================================
   # JOB 3: DEPLOY TO SALESFORCE
   # ===========================================================================
-  # This job actually deploys the code after PR is merged
+  # This job actually deploys the code to production/staging
   deploy-to-salesforce:
     # Job display name
     name: 🚀 Deploy to Salesforce
 
     # Only run this job if:
-    # 1. Validation passed
-    # 2. PR was merged (not just closed)
+    # 1. Validation passed AND
+    # 2. One of these conditions is met:
+    #    - Push to main/master branch (after PR merge)
+    #    - Manual workflow trigger with deploy flag
     needs: validate-deployment
 
-    # Only run on the main branch (after PR is merged)
-    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+    # Smart deployment logic:
+    # - Deploy on push to main/master (after PR is merged)
+    # - Deploy on manual workflow trigger
+    # - Skip deployment on PR validation (just validate, don't deploy)
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_production == 'true')
 
     runs-on: ubuntu-latest
 
@@ -365,21 +390,64 @@ jobs:
       # STEP 1: Get the code
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
+        with:
+          # Fetch more history to compare changes
+          fetch-depth: 0
 
-      # STEP 2: Setup Node.js
+      # STEP 2: Check if there are Salesforce changes to deploy
+      - name: 🔍 Check for Salesforce Changes
+        id: check_deploy
+        run: |
+          echo "=== Checking for Salesforce changes to deploy ==="
+
+          # Check if force-app directory exists
+          if [ ! -d "force-app" ]; then
+            echo "❌ force-app directory not found!"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Count files in force-app
+          FILE_COUNT=$(find force-app -type f | wc -l | tr -d ' ')
+          echo "📊 Total files in force-app: $FILE_COUNT"
+
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "⚠️  No files found in force-app/"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found $FILE_COUNT files to deploy"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+
+            # Show what types of components will be deployed
+            echo ""
+            echo "📦 Components to deploy:"
+            [ -d "force-app/main/default/classes" ] && echo "  ✅ Apex Classes: $(find force-app/main/default/classes -name "*.cls" 2>/dev/null | wc -l | tr -d ' ')"
+            [ -d "force-app/main/default/triggers" ] && echo "  ✅ Apex Triggers: $(find force-app/main/default/triggers -name "*.trigger" 2>/dev/null | wc -l | tr -d ' ')"
+            [ -d "force-app/main/default/lwc" ] && echo "  ✅ Lightning Web Components: $(find force-app/main/default/lwc -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
+            [ -d "force-app/main/default/aura" ] && echo "  ✅ Aura Components: $(find force-app/main/default/aura -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
+            [ -d "force-app/main/default/objects" ] && echo "  ✅ Custom Objects: $(find force-app/main/default/objects -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
+          fi
+
+      # STEP 3: Setup Node.js
       - name: 🔧 Setup Node.js
+        # Only run if there are changes to deploy
+        if: steps.check_deploy.outputs.has_changes == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # STEP 3: Install Salesforce CLI
+      # STEP 4: Install Salesforce CLI
       - name: 📦 Install Salesforce CLI
+        # Only run if there are changes to deploy
+        if: steps.check_deploy.outputs.has_changes == 'true'
         run: |
           npm install -g @salesforce/cli@${{ env.SFDX_CLI_VERSION }}
           sf --version
 
-      # STEP 4: Authenticate to Salesforce
+      # STEP 5: Authenticate to Salesforce
       - name: 🔐 Authenticate to Salesforce
+        # Only run if there are changes to deploy
+        if: steps.check_deploy.outputs.has_changes == 'true'
         run: |
           echo "=== Authenticating to Production Org ==="
 
@@ -452,13 +520,21 @@ jobs:
           rm server.key
           echo "✅ Authenticated to production org"
 
-      # STEP 5: Deploy to Salesforce (actual deployment)
+      # STEP 6: Deploy to Salesforce (actual deployment)
       - name: 🚀 Deploy to Salesforce
         id: deploy
+        # Only run if there are changes to deploy
+        if: steps.check_deploy.outputs.has_changes == 'true'
         run: |
           echo "=== Starting Deployment ==="
+          echo "🎯 Branch: ${{ github.ref }}"
+          echo "🎯 Event: ${{ github.event_name }}"
+          echo "🎯 Target Org: production-org"
 
           # Deploy without --dry-run flag (this is real!)
+          # Using --verbose for detailed output
+          echo ""
+          echo "📤 Deploying to Salesforce..."
           sf project deploy start \
             --source-path force-app \
             --test-level RunLocalTests \
@@ -466,9 +542,28 @@ jobs:
             --wait 30 \
             --verbose
 
+          echo ""
           echo "✅ Deployment completed successfully!"
 
-      # STEP 6: Post deployment results
+          # Show deployment summary
+          echo ""
+          echo "📊 Deployment Summary:"
+          sf project deploy report --target-org production-org || true
+
+      # STEP 7: Skip deployment notification
+      - name: ⏭️ No Changes to Deploy
+        # Only run if there are NO changes
+        if: steps.check_deploy.outputs.has_changes != 'true'
+        run: |
+          echo "ℹ️  No Salesforce changes detected in force-app/"
+          echo "ℹ️  Skipping deployment step"
+          echo ""
+          echo "This is normal if:"
+          echo "  - You only changed documentation files"
+          echo "  - You only changed CI/CD configuration"
+          echo "  - No force-app/ files were modified"
+
+      # STEP 8: Post deployment results
       - name: 💬 Post Deployment Results
         # Only run on pull requests, and always run (even if deployment fails)
         if: always() && github.event_name == 'pull_request'
