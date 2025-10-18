@@ -306,7 +306,6 @@ jobs:
           # --wait: how long to wait for validation (in minutes)
           sf project deploy start \
             --source-dir force-app \
-            --test-level RunLocalTests \
             --target-org validation-org \
             --dry-run \
             --wait 30 \
