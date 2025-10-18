@@ -1,0 +1,13 @@
+<aura:component implements="flexipage:availableForAllPageTypes">
+    <aura:attribute name="data" type="Object" default="[]"/>
+    <aura:attribute name="columns" type="List"/>
+    <aura:handler name="init" value="{! this }" action="{! c.init}"/>
+    <div class="slds-var-p-horizontal_medium" style="height: 60vh">
+                    <lightning:datatable
+                    columns="{! v.columns }"
+                    data="{! v.data }"
+                    keyField="Id"
+                    minColumnWidth="150"
+                    />
+                </div>
+</aura:component>

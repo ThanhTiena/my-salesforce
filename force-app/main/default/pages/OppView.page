@@ -1,0 +1,20 @@
+<apex:page standardController="Opportunity">
+    <apex:pageBlock >
+    	<apex:pageBlockSection >
+        	<apex:outputField value="{! Opportunity.Name}"/>
+        	<apex:outputField value="{! Opportunity.Amount}"/>
+        	<apex:outputField value="{! Opportunity.CloseDate}"/>
+        	<p>
+                {! Opportunity.Account.Name}
+            </p>
+        </apex:pageBlockSection>
+    </apex:pageBlock>
+    
+    
+	<apex:pageBlock >
+    	<apex:form acceptcharset="utf-8" >
+        	<apex:inputField value="{!Opportunity.Name}"/>
+            <apex:commandButton action="{!save}" value="save"/>
+        </apex:form>
+    </apex:pageBlock>
+</apex:page>

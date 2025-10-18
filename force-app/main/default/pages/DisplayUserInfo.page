@@ -1,0 +1,10 @@
+<apex:page >
+    <p>
+        {! $USER.FirstName}
+        {! $USER.LastName}
+        {! $USER.UserName}
+    </p>
+    <h1>
+        {!	 $Api.Partner_Server_URL_90 }
+    </h1>
+</apex:page>
