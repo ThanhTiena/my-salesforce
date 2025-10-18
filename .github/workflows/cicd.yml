@@ -226,45 +226,16 @@ jobs:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
 
-      # STEP 2: Set up Node.js (required for Salesforce CLI)
-      - name: 🔧 Setup Node.js
-        uses: actions/setup-node@v4
+      # STEP 2: Setup Salesforce Environment (Node.js + SF CLI with caching)
+      # This composite action handles all installation and caching in one step
+      # Includes: Node.js setup, npm caching, SF CLI caching, installation, verification
+      - name: ⚙️ Setup Salesforce Environment
+        uses: ./.github/actions/setup-salesforce
         with:
-          # Use version from environment variable
           node-version: ${{ env.NODE_VERSION }}
-          # Enable caching for npm to speed up installations
-          cache: 'npm'
-          cache-dependency-path: '**/package.json'
+          sf-cli-version: ${{ env.SFDX_CLI_VERSION }}
 
-      # STEP 3: Cache Salesforce CLI
-      - name: 💾 Cache Salesforce CLI
-        id: cache-sf-cli
-        uses: actions/cache@v3
-        with:
-          path: ~/.sf
-          key: sf-cli-${{ runner.os }}-${{ env.SFDX_CLI_VERSION }}
-          restore-keys: |
-            sf-cli-${{ runner.os }}-
-
-      # STEP 4: Install Salesforce CLI
-      - name: 📦 Install Salesforce CLI
-        # Only install if not cached
-        if: steps.cache-sf-cli.outputs.cache-hit != 'true'
-        run: |
-          echo "=== Installing Salesforce CLI ==="
-          # npm: Node Package Manager (installs software)
-          # -g: install globally (available everywhere)
-          # @salesforce/cli: the Salesforce CLI package
-          npm install -g @salesforce/cli@${{ env.SFDX_CLI_VERSION }}
-          echo "✅ Salesforce CLI installed successfully"
-
-      # STEP 5: Verify Salesforce CLI
-      - name: ✓ Verify Salesforce CLI
-        run: |
-          sf --version
-          echo "✅ Salesforce CLI ready"
-
-      # STEP 6: Authenticate to Salesforce using JWT
+      # STEP 3: Authenticate to Salesforce using JWT
       - name: 🔐 Authenticate to Salesforce
         run: |
           echo "=== Authenticating to Salesforce ==="
@@ -328,7 +299,7 @@ jobs:
 
           echo "✅ Authentication successful"
 
-      # STEP 7: Validate the deployment (check only, don't deploy)
+      # STEP 4: Validate the deployment (check only, don't deploy)
       - name: 🔍 Validate Deployment
         id: validate
         run: |
@@ -348,7 +319,7 @@ jobs:
 
           echo "✅ Validation completed successfully"
 
-      # STEP 8: Post validation results to PR
+      # STEP 5: Post validation results to PR
       - name: 💬 Post Validation Results
         # Only run on pull requests, and always run (even if validation fails)
         if: always() && github.event_name == 'pull_request'
@@ -381,25 +352,14 @@ jobs:
   # ===========================================================================
   # JOB 3: DEPLOY TO SALESFORCE
   # ===========================================================================
-  # This job actually deploys the code to production/staging
+  # This job deploys the code to Salesforce after validation passes
+  # Runs on every workflow execution (all branches, all events)
   deploy-to-salesforce:
     # Job display name
     name: 🚀 Deploy to Salesforce
 
-    # Only run this job if:
-    # 1. Validation passed AND
-    # 2. One of these conditions is met:
-    #    - Push to main/master branch (after PR merge)
-    #    - Manual workflow trigger with deploy flag
+    # Only requirement: validation must pass first
     needs: validate-deployment
-
-    # Smart deployment logic:
-    # - Deploy on push to main/master (after PR is merged)
-    # - Deploy on manual workflow trigger
-    # - Skip deployment on PR validation (just validate, don't deploy)
-    if: |
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_production == 'true')
 
     runs-on: ubuntu-latest
 
@@ -470,23 +430,17 @@ jobs:
             fi
           fi
 
-      # STEP 3: Setup Node.js
-      - name: 🔧 Setup Node.js
-        # Only run if there are changes to deploy
+      # STEP 3: Setup Salesforce Environment (Node.js + SF CLI with caching)
+      # This composite action handles all installation and caching in one step
+      # Only runs if there are Salesforce changes to deploy
+      - name: ⚙️ Setup Salesforce Environment
         if: steps.check_deploy.outputs.has_changes == 'true'
-        uses: actions/setup-node@v4
+        uses: ./.github/actions/setup-salesforce
         with:
           node-version: ${{ env.NODE_VERSION }}
+          sf-cli-version: ${{ env.SFDX_CLI_VERSION }}
 
-      # STEP 4: Install Salesforce CLI
-      - name: 📦 Install Salesforce CLI
-        # Only run if there are changes to deploy
-        if: steps.check_deploy.outputs.has_changes == 'true'
-        run: |
-          npm install -g @salesforce/cli@${{ env.SFDX_CLI_VERSION }}
-          sf --version
-
-      # STEP 5: Authenticate to Salesforce
+      # STEP 4: Authenticate to Salesforce
       - name: 🔐 Authenticate to Salesforce
         # Only run if there are changes to deploy
         if: steps.check_deploy.outputs.has_changes == 'true'
@@ -562,7 +516,7 @@ jobs:
           rm server.key
           echo "✅ Authenticated to production org"
 
-      # STEP 6: Deploy to Salesforce (actual deployment)
+      # STEP 8: Deploy to Salesforce (actual deployment)
       - name: 🚀 Deploy to Salesforce
         id: deploy
         # Only run if there are changes to deploy
@@ -592,7 +546,7 @@ jobs:
           echo "📊 Deployment Summary:"
           sf project deploy report --target-org production-org || true
 
-      # STEP 7: Skip deployment notification
+      # STEP 9: Skip deployment notification
       - name: ⏭️ No Changes to Deploy
         # Only run if there are NO changes
         if: steps.check_deploy.outputs.has_changes != 'true'
@@ -605,7 +559,7 @@ jobs:
           echo "  - You only changed CI/CD configuration"
           echo "  - No force-app/ files were modified"
 
-      # STEP 8: Post deployment results
+      # STEP 10: Post deployment results
       - name: 💬 Post Deployment Results
         # Only run on pull requests, and always run (even if deployment fails)
         if: always() && github.event_name == 'pull_request'
