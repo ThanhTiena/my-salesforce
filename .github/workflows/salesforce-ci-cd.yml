@@ -1,7 +1,7 @@
 # =============================================================================
 # Salesforce CI/CD Pipeline
 # =============================================================================
-# This workflow automatically runs when a Pull Request (merge request) is created
+# This workflow automatically runs on every commit and Pull Request
 # It will: 1) Summarize changes, 2) Validate against Salesforce org, 3) Deploy code
 
 # Name of the workflow (appears in GitHub Actions tab)
@@ -12,6 +12,15 @@ name: Salesforce CI/CD Pipeline
 # =============================================================================
 # Define when this workflow should run
 on:
+  # Run on every push (commit) to any branch
+  push:
+    # Only run when changes affect Salesforce code
+    paths:
+      - 'force-app/**'           # Any changes in force-app directory
+      - 'sfdx-project.json'      # Changes to SFDX project configuration
+      - 'manifest/**'            # Changes to deployment manifests
+      - '.github/workflows/**'   # Changes to workflow files themselves
+
   # Run on Pull Request events
   pull_request:
     # Trigger on these PR actions
@@ -92,13 +101,25 @@ jobs:
         # Run shell commands to analyze changes
         run: |
           echo "=== Analyzing Changed Files ==="
+          echo "Event: ${{ github.event_name }}"
 
-          # Get list of changed files between base branch and current branch
-          # git diff: compares two branches
-          # --name-only: only show file names (not content)
-          # origin/${{ github.base_ref }}: the target branch (e.g., main)
-          # HEAD: the current branch (the PR branch)
-          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD)
+          # Determine how to get changed files based on event type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For Pull Requests: compare against base branch
+            echo "Comparing PR branch against base branch..."
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD)
+          else
+            # For push events: compare against previous commit
+            echo "Comparing against previous commit..."
+            if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+              # First commit in a new branch
+              echo "First commit detected, getting all files in force-app/"
+              CHANGED_FILES=$(git ls-files force-app/)
+            else
+              # Regular commit
+              CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+            fi
+          fi
 
           echo "Changed files:"
           echo "$CHANGED_FILES"
@@ -136,6 +157,8 @@ jobs:
       # STEP 3: Create a comment on the PR with summary
       - name: 💬 Post Summary Comment
         # This action creates/updates a comment on the Pull Request
+        # Only run this step if triggered by a pull_request event
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           # JavaScript code to create the comment
@@ -211,18 +234,57 @@ jobs:
         run: |
           echo "=== Authenticating to Salesforce ==="
 
+          # Check if secrets are set (without revealing the values)
+          if [ -z "${{ secrets.SF_JWT_KEY }}" ]; then
+            echo "❌ ERROR: SF_JWT_KEY secret is not set!"
+            echo "Please add SF_JWT_KEY in GitHub Settings > Secrets and Variables > Actions"
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.SF_CONSUMER_KEY }}" ]; then
+            echo "❌ ERROR: SF_CONSUMER_KEY secret is not set!"
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.SF_USERNAME }}" ]; then
+            echo "❌ ERROR: SF_USERNAME secret is not set!"
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.SF_INSTANCE_URL }}" ]; then
+            echo "❌ ERROR: SF_INSTANCE_URL secret is not set!"
+            exit 1
+          fi
+
+          echo "✅ All required secrets are set"
+
           # Create server.key file from the secret variable
           # This is your private key for JWT authentication
-          # ${{ secrets.SF_JWT_KEY }} comes from GitHub Settings > Secrets
-          echo "${{ secrets.SF_JWT_KEY }}" > server.key
+          # The printf command preserves newlines and special characters
+          printf "%s" "${{ secrets.SF_JWT_KEY }}" > server.key
+
+          # Check if the key file was created successfully
+          if [ ! -s server.key ]; then
+            echo "❌ ERROR: server.key file is empty!"
+            echo "Check that SF_JWT_KEY contains the complete private key"
+            exit 1
+          fi
+
+          echo "✅ JWT key file created successfully"
+
+          # Display key file info (first and last line only, for debugging)
+          echo "Key file first line: $(head -n 1 server.key)"
+          echo "Key file last line: $(tail -n 1 server.key)"
+          echo "Key file size: $(wc -c < server.key) bytes"
 
           # Authenticate using JWT (JSON Web Token) flow
           # This is a secure way to authenticate without password
+          echo "Attempting JWT authentication..."
           sf org login jwt \
-            --client-id ${{ secrets.SF_CONSUMER_KEY }} \
+            --client-id "${{ secrets.SF_CONSUMER_KEY }}" \
             --jwt-key-file server.key \
-            --username ${{ secrets.SF_USERNAME }} \
-            --instance-url ${{ secrets.SF_INSTANCE_URL }} \
+            --username "${{ secrets.SF_USERNAME }}" \
+            --instance-url "${{ secrets.SF_INSTANCE_URL }}" \
             --alias validation-org \
             --set-default
 
@@ -254,7 +316,8 @@ jobs:
 
       # STEP 6: Post validation results to PR
       - name: 💬 Post Validation Results
-        if: always()  # Run even if validation fails
+        # Only run on pull requests, and always run (even if validation fails)
+        if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -319,15 +382,71 @@ jobs:
       # STEP 4: Authenticate to Salesforce
       - name: 🔐 Authenticate to Salesforce
         run: |
-          echo "${{ secrets.SF_JWT_KEY }}" > server.key
+          echo "=== Authenticating to Production Org ==="
 
-          # For deployment, you might want to use production credentials
-          # Use SF_PROD_CONSUMER_KEY, SF_PROD_USERNAME, etc. for production
+          # Determine which credentials to use (production or default)
+          CONSUMER_KEY="${{ secrets.SF_PROD_CONSUMER_KEY }}"
+          USERNAME="${{ secrets.SF_PROD_USERNAME }}"
+          INSTANCE_URL="${{ secrets.SF_PROD_INSTANCE_URL }}"
+
+          # Fall back to default credentials if production credentials are not set
+          if [ -z "$CONSUMER_KEY" ]; then
+            echo "⚠️  SF_PROD_CONSUMER_KEY not set, using SF_CONSUMER_KEY"
+            CONSUMER_KEY="${{ secrets.SF_CONSUMER_KEY }}"
+          fi
+
+          if [ -z "$USERNAME" ]; then
+            echo "⚠️  SF_PROD_USERNAME not set, using SF_USERNAME"
+            USERNAME="${{ secrets.SF_USERNAME }}"
+          fi
+
+          if [ -z "$INSTANCE_URL" ]; then
+            echo "⚠️  SF_PROD_INSTANCE_URL not set, using SF_INSTANCE_URL"
+            INSTANCE_URL="${{ secrets.SF_INSTANCE_URL }}"
+          fi
+
+          # Validate all required credentials are set
+          if [ -z "${{ secrets.SF_JWT_KEY }}" ]; then
+            echo "❌ ERROR: SF_JWT_KEY secret is not set!"
+            exit 1
+          fi
+
+          if [ -z "$CONSUMER_KEY" ]; then
+            echo "❌ ERROR: No consumer key found!"
+            exit 1
+          fi
+
+          if [ -z "$USERNAME" ]; then
+            echo "❌ ERROR: No username found!"
+            exit 1
+          fi
+
+          if [ -z "$INSTANCE_URL" ]; then
+            echo "❌ ERROR: No instance URL found!"
+            exit 1
+          fi
+
+          echo "✅ Using credentials for: $USERNAME"
+          echo "✅ Instance URL: $INSTANCE_URL"
+
+          # Create server.key file from the secret variable
+          printf "%s" "${{ secrets.SF_JWT_KEY }}" > server.key
+
+          # Check if the key file was created successfully
+          if [ ! -s server.key ]; then
+            echo "❌ ERROR: server.key file is empty!"
+            exit 1
+          fi
+
+          echo "✅ JWT key file created successfully"
+
+          # Authenticate using JWT
+          echo "Attempting JWT authentication..."
           sf org login jwt \
-            --client-id ${{ secrets.SF_PROD_CONSUMER_KEY || secrets.SF_CONSUMER_KEY }} \
+            --client-id "$CONSUMER_KEY" \
             --jwt-key-file server.key \
-            --username ${{ secrets.SF_PROD_USERNAME || secrets.SF_USERNAME }} \
-            --instance-url ${{ secrets.SF_PROD_INSTANCE_URL || secrets.SF_INSTANCE_URL }} \
+            --username "$USERNAME" \
+            --instance-url "$INSTANCE_URL" \
             --alias production-org \
             --set-default
 
@@ -352,7 +471,8 @@ jobs:
 
       # STEP 6: Post deployment results
       - name: 💬 Post Deployment Results
-        if: always()
+        # Only run on pull requests, and always run (even if deployment fails)
+        if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
