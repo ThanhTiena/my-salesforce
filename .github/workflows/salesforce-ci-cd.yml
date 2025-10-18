@@ -322,8 +322,7 @@ jobs:
           # --target-org: which org to validate against
           # --wait: how long to wait for validation (in minutes)
           sf project deploy start \
-            --source-path force-app \
-            --test-level RunLocalTests \
+            --source-dir force-app \
             --target-org validation-org \
             --dry-run \
             --wait 30 \
