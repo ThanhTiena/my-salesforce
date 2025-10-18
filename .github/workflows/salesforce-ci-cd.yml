@@ -438,11 +438,36 @@ jobs:
             # Show what types of components will be deployed
             echo ""
             echo "📦 Components to deploy:"
-            [ -d "force-app/main/default/classes" ] && echo "  ✅ Apex Classes: $(find force-app/main/default/classes -name "*.cls" 2>/dev/null | wc -l | tr -d ' ')"
-            [ -d "force-app/main/default/triggers" ] && echo "  ✅ Apex Triggers: $(find force-app/main/default/triggers -name "*.trigger" 2>/dev/null | wc -l | tr -d ' ')"
-            [ -d "force-app/main/default/lwc" ] && echo "  ✅ Lightning Web Components: $(find force-app/main/default/lwc -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
-            [ -d "force-app/main/default/aura" ] && echo "  ✅ Aura Components: $(find force-app/main/default/aura -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
-            [ -d "force-app/main/default/objects" ] && echo "  ✅ Custom Objects: $(find force-app/main/default/objects -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
+
+            # Count Apex Classes
+            if [ -d "force-app/main/default/classes" ]; then
+              APEX_COUNT=$(find force-app/main/default/classes -name "*.cls" 2>/dev/null | wc -l | tr -d ' ')
+              echo "  ✅ Apex Classes: $APEX_COUNT"
+            fi
+
+            # Count Apex Triggers
+            if [ -d "force-app/main/default/triggers" ]; then
+              TRIGGER_COUNT=$(find force-app/main/default/triggers -name "*.trigger" 2>/dev/null | wc -l | tr -d ' ')
+              echo "  ✅ Apex Triggers: $TRIGGER_COUNT"
+            fi
+
+            # Count Lightning Web Components
+            if [ -d "force-app/main/default/lwc" ]; then
+              LWC_COUNT=$(find force-app/main/default/lwc -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
+              echo "  ✅ Lightning Web Components: $LWC_COUNT"
+            fi
+
+            # Count Aura Components
+            if [ -d "force-app/main/default/aura" ]; then
+              AURA_COUNT=$(find force-app/main/default/aura -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
+              echo "  ✅ Aura Components: $AURA_COUNT"
+            fi
+
+            # Count Custom Objects
+            if [ -d "force-app/main/default/objects" ]; then
+              OBJECT_COUNT=$(find force-app/main/default/objects -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
+              echo "  ✅ Custom Objects: $OBJECT_COUNT"
+            fi
           fi
 
       # STEP 3: Setup Node.js
