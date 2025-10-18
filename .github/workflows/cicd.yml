@@ -1,8 +1,13 @@
 # =============================================================================
-# Salesforce CI/CD Pipeline
+# Salesforce CI/CD Pipeline - Pull Request Based Deployment
 # =============================================================================
-# This workflow automatically runs on every commit and Pull Request
-# It will: 1) Summarize changes, 2) Validate against Salesforce org, 3) Deploy code
+# Workflow Process:
+# 1. Create Pull Request → Validation runs automatically
+# 2. Validation passes → Merge button appears
+# 3. Merge PR → Deployment runs automatically
+#
+# This ensures code is validated before merge and deployed only after merge.
+# =============================================================================
 
 # Name of the workflow (appears in GitHub Actions tab)
 name: Salesforce CI/CD Pipeline
@@ -10,42 +15,48 @@ name: Salesforce CI/CD Pipeline
 # =============================================================================
 # TRIGGER CONDITIONS
 # =============================================================================
-# Define when this workflow should run
+# This workflow has TWO separate triggers:
+#
+# 1. Pull Request → Runs validation only (blocks merge if fails)
+# 2. Push to main → Runs deployment only (after PR is merged)
+#
 on:
-  # Run on every push (commit) to any branch
-  push:
-    # Only run when changes affect Salesforce code
-    paths:
-      - 'force-app/**'           # Any changes in force-app directory
-      - 'sfdx-project.json'      # Changes to SFDX project configuration
-      - 'manifest/**'            # Changes to deployment manifests
-      - '.github/workflows/**'   # Changes to workflow files themselves
-
-  # Run on Pull Request events
+  # TRIGGER 1: Pull Request Events
+  # Runs validation when PR is created or updated
+  # Validation must pass before merge button appears
   pull_request:
-    # Trigger on these PR actions
     types:
       - opened       # When PR is first created
       - synchronize  # When new commits are pushed to the PR
       - reopened     # When a closed PR is reopened
-    # Only run when changes affect Salesforce code
     paths:
       - 'force-app/**'           # Any changes in force-app directory
       - 'sfdx-project.json'      # Changes to SFDX project configuration
       - 'manifest/**'            # Changes to deployment manifests
 
-  # Optional: Allow manual workflow trigger from GitHub UI
+  # TRIGGER 2: Push to Main Branch
+  # Runs deployment after PR is merged to main
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'force-app/**'           # Any changes in force-app directory
+      - 'sfdx-project.json'      # Changes to SFDX project configuration
+      - 'manifest/**'            # Changes to deployment manifests
+
+  # TRIGGER 3: Manual Workflow Trigger (optional)
+  # Allows manual deployment from GitHub UI
   workflow_dispatch:
-    # Add input parameters for manual runs
     inputs:
-      deploy_to_production:
-        description: 'Deploy to production?'
-        required: false
-        default: 'false'
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'sandbox'
         type: choice
         options:
-          - 'true'
-          - 'false'
+          - 'sandbox'
+          - 'production'
 # =============================================================================
 # PERMISSIONS
 # =============================================================================
@@ -352,14 +363,20 @@ jobs:
   # ===========================================================================
   # JOB 3: DEPLOY TO SALESFORCE
   # ===========================================================================
-  # This job deploys the code to Salesforce after validation passes
-  # Runs on every workflow execution (all branches, all events)
+  # This job deploys the code to Salesforce after PR is merged to main
+  # ONLY runs on push to main/master branch (after PR merge)
+  # Does NOT run during PR validation
   deploy-to-salesforce:
     # Job display name
     name: 🚀 Deploy to Salesforce
 
-    # Only requirement: validation must pass first
+    # Requirements:
+    # 1. Validation must pass first
+    # 2. Must be a push to main/master (not a PR)
     needs: validate-deployment
+
+    # CRITICAL: Only run on push to main/master, NOT on pull requests
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
     runs-on: ubuntu-latest
 
