@@ -37,7 +37,24 @@ on:
         options:
           - 'true'
           - 'false'
+# =============================================================================
+# PERMISSIONS
+# =============================================================================
+# Grant permissions to GitHub Actions to interact with Pull Requests
+# Without these, the workflow cannot post comments or update PR status
+permissions:
+  # Allow reading repository contents (code, files)
+  contents: read
 
+  # Allow writing to Pull Requests (post comments, update status)
+  pull-requests: write
+
+  # Allow writing to Issues (PRs are a type of issue in GitHub)
+  issues: write
+
+  # Allow reading checks and statuses
+  checks: read
+  
 # =============================================================================
 # ENVIRONMENT VARIABLES
 # =============================================================================
