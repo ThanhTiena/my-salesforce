@@ -3,7 +3,7 @@
 public class AsyncParksServices {
     public class byCountryResponseFuture extends System.WebServiceCalloutFuture {
         public String[] getValue() {
-            ParksServices.byCountryResponse response = (ParksServices.byCountryResponse)System.WebServiceCallout.endInvoke(this);
+            ParkService.byCountryResponse response = (ParkService.byCountryResponse)System.WebServiceCallout.endInvoke(this);
             return response.return_x;
         }
     }
@@ -12,9 +12,9 @@ public class AsyncParksServices {
         public Map<String,String> inputHttpHeaders_x;
         public String clientCertName_x;
         public Integer timeout_x;
-        private String[] ns_map_type_info = new String[]{'http://parks.services/', 'ParksServices'};
+        private String[] ns_map_type_info = new String[]{'http://parks.services/', 'ParkService'};
         public AsyncParksServices.byCountryResponseFuture beginByCountry(System.Continuation continuation,String arg0) {
-            ParksServices.byCountry request_x = new ParksServices.byCountry();
+            ParkService.byCountry request_x = new ParkService.byCountry();
             request_x.arg0 = arg0;
             return (AsyncParksServices.byCountryResponseFuture) System.WebServiceCallout.beginInvoke(
               this,
@@ -27,7 +27,7 @@ public class AsyncParksServices {
               'byCountry',
               'http://parks.services/',
               'byCountryResponse',
-              'ParksServices.byCountryResponse'}
+              'ParkService.byCountryResponse'}
             );
         }
     }
