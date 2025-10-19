@@ -316,18 +316,37 @@ jobs:
         run: |
           echo "=== Starting Validation ==="
 
+          # Determine test level based on whether Apex classes changed
+          # If Apex classes (.cls files) changed, we MUST run tests
+          # If only metadata or LWC changed, we can skip tests for faster validation
+          if [ "${{ needs.summarize-changes.outputs.has_apex }}" = "true" ]; then
+            TEST_LEVEL="RunLocalTests"
+            echo "🧪 Test Level: RunLocalTests"
+            echo "   Reason: Apex classes were modified and require testing"
+          else
+            TEST_LEVEL="NoTestRun"
+            echo "⏭️  Test Level: NoTestRun"
+            echo "   Reason: No Apex changes detected (only metadata/LWC/config)"
+            echo "   This will significantly speed up the validation!"
+          fi
+
           # Deploy with --dry-run flag to validate without deploying
           # --source-dir: what to deploy
-          # --test-level RunLocalTests: run all tests in your org
+          # --test-level: conditional based on Apex changes (see above)
           # --target-org: which org to validate against
+          # --dry-run: only validate, don't actually deploy
           # --wait: how long to wait for validation (in minutes)
+          echo ""
+          echo "📤 Starting validation with test level: $TEST_LEVEL"
           sf project deploy start \
             --source-dir force-app \
             --target-org validation-org \
+            --test-level $TEST_LEVEL \
             --dry-run \
             --wait 30 \
             --verbose
 
+          echo ""
           echo "✅ Validation completed successfully"
 
       # STEP 5: Post validation results to PR
@@ -398,6 +417,7 @@ jobs:
           if [ ! -d "force-app" ]; then
             echo "❌ force-app directory not found!"
             echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_apex=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -408,9 +428,29 @@ jobs:
           if [ "$FILE_COUNT" -eq 0 ]; then
             echo "⚠️  No files found in force-app/"
             echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_apex=false" >> $GITHUB_OUTPUT
           else
             echo "✅ Found $FILE_COUNT files to deploy"
             echo "has_changes=true" >> $GITHUB_OUTPUT
+
+            # Detect if Apex classes changed in this push
+            echo ""
+            echo "🔍 Detecting Apex changes..."
+            if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+              # First commit - check if any .cls files exist
+              CHANGED_FILES=$(git ls-files force-app/)
+            else
+              # Regular commit - check what changed
+              CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+            fi
+
+            if echo "$CHANGED_FILES" | grep -q "\.cls$"; then
+              echo "has_apex=true" >> $GITHUB_OUTPUT
+              echo "✅ Apex classes (.cls) changed - tests will run"
+            else
+              echo "has_apex=false" >> $GITHUB_OUTPUT
+              echo "⚪ No Apex changes - tests will be skipped"
+            fi
 
             # Show what types of components will be deployed
             echo ""
@@ -544,13 +584,31 @@ jobs:
           echo "🎯 Event: ${{ github.event_name }}"
           echo "🎯 Target Org: production-org"
 
+          # Determine test level based on whether Apex classes changed
+          # If Apex classes (.cls files) changed, we MUST run tests
+          # If only metadata or LWC changed, we can skip tests for faster deployment
+          echo ""
+          if [ "${{ steps.check_deploy.outputs.has_apex }}" = "true" ]; then
+            TEST_LEVEL="RunLocalTests"
+            echo "🧪 Test Level: RunLocalTests"
+            echo "   Reason: Apex classes were modified and require testing"
+            echo "   Note: This ensures code quality but may take longer"
+          else
+            TEST_LEVEL="NoTestRun"
+            echo "⏭️  Test Level: NoTestRun"
+            echo "   Reason: No Apex changes detected (only metadata/LWC/config)"
+            echo "   Note: This will significantly speed up the deployment!"
+          fi
+
           # Deploy without --dry-run flag (this is real!)
+          # --test-level: conditional based on Apex changes (see above)
           # Using --verbose for detailed output
           echo ""
-          echo "📤 Deploying to Salesforce..."
+          echo "📤 Deploying to Salesforce with test level: $TEST_LEVEL"
           sf project deploy start \
             --source-dir force-app \
             --target-org production-org \
+            --test-level $TEST_LEVEL \
             --wait 30 \
             --verbose
 
