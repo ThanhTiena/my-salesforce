@@ -1,0 +1,21 @@
+{
+  "componentTypes": {
+    "apexClasses": true,
+    "triggers": true,
+    "lwc": false,
+    "aura": false,
+    "flows": false,
+    "objects": false
+  },
+  "deploymentOptions": {
+    "testLevel": "NoTestRun",
+    "ignoreWarnings": true,
+    "dryRun": false
+  },
+  "continuous": {
+    "enabled": false,
+    "minInterval": 30000,
+    "maxInterval": 300000
+  },
+  "basePath": "force-app/main/default"
+}
