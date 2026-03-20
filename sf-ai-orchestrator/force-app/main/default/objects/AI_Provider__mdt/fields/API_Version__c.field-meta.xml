@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>API_Version__c</fullName>
+    <description>API version header value (used by Azure OpenAI: 2024-02-01)</description>
+    <label>API Version</label>
+    <length>50</length>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

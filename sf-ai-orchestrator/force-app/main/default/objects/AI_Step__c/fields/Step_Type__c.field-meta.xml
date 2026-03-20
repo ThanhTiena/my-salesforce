@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Step_Type__c</fullName>
+    <label>Step Type</label>
+    <required>true</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>INFERENCE</fullName>
+                <default>true</default>
+                <label>AI Inference</label>
+            </value>
+            <value>
+                <fullName>CLASSIFICATION</fullName>
+                <default>false</default>
+                <label>Classification</label>
+            </value>
+            <value>
+                <fullName>SUMMARIZATION</fullName>
+                <default>false</default>
+                <label>Summarization</label>
+            </value>
+            <value>
+                <fullName>SENTIMENT</fullName>
+                <default>false</default>
+                <label>Sentiment Analysis</label>
+            </value>
+            <value>
+                <fullName>EXTRACTION</fullName>
+                <default>false</default>
+                <label>Data Extraction</label>
+            </value>
+            <value>
+                <fullName>TRANSLATION</fullName>
+                <default>false</default>
+                <label>Translation</label>
+            </value>
+            <value>
+                <fullName>EMBEDDING</fullName>
+                <default>false</default>
+                <label>Embedding</label>
+            </value>
+            <value>
+                <fullName>CUSTOM</fullName>
+                <default>false</default>
+                <label>Custom</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

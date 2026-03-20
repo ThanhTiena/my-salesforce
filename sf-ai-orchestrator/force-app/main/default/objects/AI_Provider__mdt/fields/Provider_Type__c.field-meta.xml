@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Provider_Type__c</fullName>
+    <description>Adapter key: OPENAI | ANTHROPIC | GOOGLE | AZURE_OPENAI | COHERE | MISTRAL | CUSTOM</description>
+    <label>Provider Type</label>
+    <length>50</length>
+    <required>true</required>
+    <type>Text</type>
+</CustomField>

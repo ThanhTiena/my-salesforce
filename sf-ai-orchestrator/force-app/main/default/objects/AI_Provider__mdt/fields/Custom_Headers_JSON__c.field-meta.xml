@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Custom_Headers_JSON__c</fullName>
+    <description>Additional HTTP headers as JSON object. Do NOT include auth headers here — use Named Credentials.</description>
+    <label>Custom Headers (JSON)</label>
+    <required>false</required>
+    <type>TextArea</type>
+</CustomField>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Custom Metadata Type that defines AI provider configuration. API tokens are stored exclusively in Named Credentials — never in this record.</description>
+    <label>AI Provider</label>
+    <pluralLabel>AI Providers</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

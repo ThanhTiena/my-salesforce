@@ -1,0 +1,105 @@
+<template>
+    <lightning-card title="AI Execution Monitor" icon-name="standard:bot">
+        <div class="slds-p-around_medium">
+
+            <!-- Filter bar -->
+            <div class="slds-grid slds-gutters slds-m-bottom_medium">
+                <div class="slds-col slds-size_1-of-3">
+                    <lightning-combobox
+                        label="Status Filter"
+                        value={statusFilter}
+                        options={statusOptions}
+                        onchange={handleStatusFilter}>
+                    </lightning-combobox>
+                </div>
+                <div class="slds-col slds-size_1-of-3">
+                    <lightning-input
+                        type="search"
+                        label="Search Workflow"
+                        value={searchTerm}
+                        onchange={handleSearch}>
+                    </lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-3 slds-align-bottom">
+                    <lightning-button
+                        label="Refresh"
+                        icon-name="utility:refresh"
+                        onclick={handleRefresh}>
+                    </lightning-button>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <template if:true={isLoading}>
+                <lightning-spinner alternative-text="Loading executions..." size="medium"></lightning-spinner>
+            </template>
+
+            <!-- Error -->
+            <template if:true={error}>
+                <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+                    <span>{error}</span>
+                </div>
+            </template>
+
+            <!-- Data table -->
+            <template if:false={isLoading}>
+                <lightning-datatable
+                    key-field="Id"
+                    data={executions}
+                    columns={columns}
+                    hide-checkbox-column
+                    onrowaction={handleRowAction}>
+                </lightning-datatable>
+
+                <template if:true={isEmpty}>
+                    <div class="slds-illustration slds-illustration_small slds-m-top_large">
+                        <p class="slds-text-color_weak slds-text-align_center">No executions found.</p>
+                    </div>
+                </template>
+            </template>
+
+        </div>
+
+        <!-- Execution Detail Modal -->
+        <template if:true={showDetail}>
+            <section role="dialog" class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <h2 class="slds-modal__title">Execution Detail — {selectedExecution.Name}</h2>
+                        <button class="slds-button slds-button_icon slds-modal__close" onclick={closeDetail}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <dl class="slds-list_horizontal slds-wrap">
+                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Status</dt>
+                            <dd class="slds-item_detail">{selectedExecution.Status__c}</dd>
+                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Started</dt>
+                            <dd class="slds-item_detail">{selectedExecution.Started_At__c}</dd>
+                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Duration</dt>
+                            <dd class="slds-item_detail">{selectedExecution.Duration_Seconds__c}s</dd>
+                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Total Tokens</dt>
+                            <dd class="slds-item_detail">{selectedExecution.Total_Tokens_Used__c}</dd>
+                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Error</dt>
+                            <dd class="slds-item_detail">{selectedExecution.Error_Message__c}</dd>
+                        </dl>
+
+                        <!-- Step executions sub-table -->
+                        <h3 class="slds-text-heading_small slds-m-top_medium">Step Executions</h3>
+                        <lightning-datatable
+                            key-field="Id"
+                            data={selectedStepExecutions}
+                            columns={stepColumns}
+                            hide-checkbox-column>
+                        </lightning-datatable>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <lightning-button label="Close" onclick={closeDetail}></lightning-button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+    </lightning-card>
+</template>

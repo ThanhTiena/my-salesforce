@@ -1,0 +1,18 @@
+{
+  "packageDirectories": [
+    {
+      "path": "force-app",
+      "default": true,
+      "package": "AI Orchestration",
+      "versionName": "Version 1.0",
+      "versionNumber": "1.0.0.NEXT",
+      "versionDescription": "AI Workflow Orchestration managed package for Salesforce Enterprise"
+    }
+  ],
+  "namespace": "aiorchestrator",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "61.0",
+  "plugins": {
+    "linkedPackages": []
+  }
+}

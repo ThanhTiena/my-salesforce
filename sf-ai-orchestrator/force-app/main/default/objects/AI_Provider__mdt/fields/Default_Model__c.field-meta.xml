@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Default_Model__c</fullName>
+    <description>Default model identifier (e.g. gpt-4o, claude-sonnet-4-6)</description>
+    <label>Default Model</label>
+    <length>255</length>
+    <required>true</required>
+    <type>Text</type>
+</CustomField>
