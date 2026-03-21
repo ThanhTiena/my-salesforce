@@ -5,7 +5,8 @@
     <referenceTo>AI_Execution__c</referenceTo>
     <relationshipLabel>Step Executions</relationshipLabel>
     <relationshipName>AI_Step_Executions</relationshipName>
-    <required>true</required>
+    <relationshipOrder>0</relationshipOrder>
+    <reparentableMasterDetail>false</reparentableMasterDetail>
     <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
     <type>MasterDetail</type>

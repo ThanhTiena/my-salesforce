@@ -6,7 +6,7 @@
     <referenceTo>AI_Workflow__c</referenceTo>
     <relationshipLabel>AI Executions</relationshipLabel>
     <relationshipName>AI_Executions</relationshipName>
-    <required>true</required>
+    <required>false</required>
     <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
     <type>Lookup</type>
