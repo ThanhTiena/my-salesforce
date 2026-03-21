@@ -1,0 +1,92 @@
+.designer-root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #f3f3f3;
+}
+
+/* ── Toolbar ── */
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: #ffffff;
+    border-bottom: 1px solid #dddbda;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    z-index: 10;
+}
+
+.toolbar-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #032d60;
+}
+
+.toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ── Canvas ── */
+.canvas-container {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+}
+
+.drawflow-wrapper {
+    width: 100%;
+    height: 100%;
+}
+
+/* ── Overlays ── */
+.canvas-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.7);
+    z-index: 20;
+}
+
+.canvas-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #706e6b;
+    font-size: 0.875rem;
+    pointer-events: none;
+}
+
+/* ── Node styles (Drawflow node inner content) ── */
+.drawflow .df-node-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.drawflow .node-start  { background: #2e844a; color: #fff; }
+.drawflow .node-end    { background: #ba0517; color: #fff; }
+.drawflow .node-ai     { background: #1b96ff; color: #fff; }
+.drawflow .node-decision { background: #ff9e2c; color: #032d60; }
+.drawflow .node-http   { background: #6b7280; color: #fff; }
+.drawflow .node-apex   { background: #7c3aed; color: #fff; }
+.drawflow .node-flow   { background: #0284c7; color: #fff; }
+.drawflow .node-wait   { background: #9a3b14; color: #fff; }
+.drawflow .node-loop   { background: #1d4ed8; color: #fff; }
+.drawflow .node-subflow { background: #374151; color: #fff; }
+.drawflow .node-notification { background: #059669; color: #fff; }
+.drawflow .node-default { background: #dddbda; color: #032d60; }
+
+/* ── Badges ── */
+.badge-warning  { --slds-c-badge-color-background: #ff9e2c; }
+.badge-success  { --slds-c-badge-color-background: #2e844a; color: #fff; }
+.badge-neutral  { --slds-c-badge-color-background: #dddbda; }

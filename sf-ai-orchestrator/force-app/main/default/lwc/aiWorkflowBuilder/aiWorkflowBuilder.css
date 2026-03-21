@@ -1,0 +1,30 @@
+/* ── Card override: fill available height ── */
+:host {
+    display: block;
+    height: 100%;
+}
+
+/* ── Three-column layout ── */
+.builder-layout {
+    display: flex;
+    height: calc(100vh - 10rem);
+    min-height: 500px;
+    overflow: hidden;
+}
+
+/* ── Canvas drop zone (middle column, fills remaining space) ── */
+.canvas-drop-zone {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ── Workflow selector (in card header) ── */
+.workflow-selector {
+    min-width: 220px;
+}
+
+/* ── Modal backdrop fix for LWC ── */
+.slds-modal__container {
+    max-width: 28rem;
+}

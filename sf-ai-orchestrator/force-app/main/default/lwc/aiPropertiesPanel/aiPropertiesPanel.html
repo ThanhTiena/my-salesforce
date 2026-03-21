@@ -1,0 +1,322 @@
+<template>
+    <div class="props-root">
+        <!-- No selection state -->
+        <template if:false={hasSelection}>
+            <div class="props-empty">
+                <p>Select a node on the canvas to configure it.</p>
+            </div>
+        </template>
+
+        <!-- Selection: header always shown -->
+        <template if:true={hasSelection}>
+            <div class="props-header">
+                <span class="props-node-icon">{nodeIcon}</span>
+                <span class="props-node-title">{nodeLabel}</span>
+            </div>
+
+            <div class="props-body">
+
+                <!-- ── Common fields (all types) ── -->
+                <div class="props-section">
+                    <lightning-input
+                        label="Step Name"
+                        value={stepData.name}
+                        data-field="name"
+                        onchange={handleFieldChange}
+                        maxlength="80">
+                    </lightning-input>
+
+                    <lightning-input
+                        type="checkbox"
+                        label="Active"
+                        checked={stepData.isActive}
+                        data-field="isActive"
+                        onchange={handleCheckboxChange}>
+                    </lightning-input>
+                </div>
+
+                <!-- ── AI_INFERENCE fields ── -->
+                <template if:true={isAiInference}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">AI Configuration</p>
+
+                        <lightning-combobox
+                            label="AI Provider"
+                            value={stepData.providerDeveloperName}
+                            options={providerOptions}
+                            placeholder="Select provider..."
+                            data-field="providerDeveloperName"
+                            onchange={handleProviderChange}
+                            required>
+                        </lightning-combobox>
+
+                        <lightning-input
+                            label="Model Override"
+                            value={stepData.modelOverride}
+                            placeholder={defaultModelPlaceholder}
+                            data-field="modelOverride"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+
+                        <lightning-combobox
+                            label="Step Type"
+                            value={stepData.stepType}
+                            options={stepTypeOptions}
+                            data-field="aiStepSubtype"
+                            onchange={handleFieldChange}>
+                        </lightning-combobox>
+
+                        <lightning-combobox
+                            label="Response Format"
+                            value={stepData.responseFormat}
+                            options={responseFormatOptions}
+                            data-field="responseFormat"
+                            onchange={handleFieldChange}>
+                        </lightning-combobox>
+
+                        <lightning-textarea
+                            label="System Prompt"
+                            value={stepData.systemPrompt}
+                            placeholder="You are a helpful assistant..."
+                            rows="3"
+                            data-field="systemPrompt"
+                            onchange={handleFieldChange}>
+                        </lightning-textarea>
+
+                        <lightning-textarea
+                            label="User Prompt Template"
+                            value={stepData.promptTemplate}
+                            placeholder={promptPlaceholder}
+                            rows="6"
+                            data-field="promptTemplate"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-textarea>
+
+                        <lightning-input
+                            label="Output Field API Name"
+                            value={stepData.outputField}
+                            placeholder="e.g. AI_Summary__c"
+                            data-field="outputField"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+                    </div>
+
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Advanced (optional)</p>
+
+                        <lightning-input
+                            type="number"
+                            label="Temperature Override"
+                            value={stepData.temperature}
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            placeholder="e.g. 0.7"
+                            data-field="temperature"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+
+                        <lightning-input
+                            type="number"
+                            label="Max Tokens Override"
+                            value={stepData.maxTokens}
+                            min="1"
+                            placeholder="e.g. 4096"
+                            data-field="maxTokens"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+                    </div>
+                </template>
+
+                <!-- ── DECISION fields ── -->
+                <template if:true={isDecision}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Decision Configuration</p>
+                        <lightning-textarea
+                            label="Condition Expression"
+                            value={stepData.condition}
+                            placeholder="e.g. context.score >= 70"
+                            rows="3"
+                            data-field="condition"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-textarea>
+                    </div>
+                </template>
+
+                <!-- ── HTTP_CALLOUT fields ── -->
+                <template if:true={isHttpCallout}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">HTTP Callout</p>
+                        <lightning-input
+                            label="Named Credential API Name"
+                            value={stepData.namedCredential}
+                            placeholder="e.g. My_External_Service"
+                            data-field="namedCredential"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-input>
+                        <lightning-input
+                            label="Path"
+                            value={stepData.httpPath}
+                            placeholder="/api/v1/endpoint"
+                            data-field="httpPath"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-input>
+                        <lightning-combobox
+                            label="HTTP Method"
+                            value={stepData.httpMethod}
+                            options={httpMethodOptions}
+                            data-field="httpMethod"
+                            onchange={handleFieldChange}>
+                        </lightning-combobox>
+                        <lightning-textarea
+                            label="Request Body (JSON Template)"
+                            value={stepData.httpBody}
+                            rows="4"
+                            placeholder={httpBodyPlaceholder}
+                            data-field="httpBody"
+                            onchange={handleFieldChange}>
+                        </lightning-textarea>
+                    </div>
+                </template>
+
+                <!-- ── APEX_ACTION fields ── -->
+                <template if:true={isApexAction}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Apex Action</p>
+                        <lightning-input
+                            label="Apex Class Name"
+                            value={stepData.apexClassName}
+                            placeholder="e.g. MyOrchestrationAction"
+                            data-field="apexClassName"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-input>
+                    </div>
+                </template>
+
+                <!-- ── FLOW_LAUNCH fields ── -->
+                <template if:true={isFlowLaunch}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Flow Launch</p>
+                        <lightning-input
+                            label="Flow API Name"
+                            value={stepData.flowApiName}
+                            placeholder="e.g. My_Flow"
+                            data-field="flowApiName"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-input>
+                        <lightning-textarea
+                            label="Input Variables (JSON)"
+                            value={stepData.flowInputs}
+                            rows="3"
+                            placeholder={flowInputsPlaceholder}
+                            data-field="flowInputs"
+                            onchange={handleFieldChange}>
+                        </lightning-textarea>
+                    </div>
+                </template>
+
+                <!-- ── WAIT fields ── -->
+                <template if:true={isWait}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Wait Configuration</p>
+                        <lightning-input
+                            type="number"
+                            label="Wait Duration (minutes)"
+                            value={stepData.waitMinutes}
+                            min="1"
+                            data-field="waitMinutes"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+                        <lightning-input
+                            label="Resume Platform Event API Name"
+                            value={stepData.resumeEvent}
+                            placeholder="e.g. WorkflowResume__e"
+                            data-field="resumeEvent"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+                    </div>
+                </template>
+
+                <!-- ── NOTIFICATION fields ── -->
+                <template if:true={isNotification}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Notification</p>
+                        <lightning-combobox
+                            label="Notification Type"
+                            value={stepData.notificationType}
+                            options={notificationTypeOptions}
+                            data-field="notificationType"
+                            onchange={handleFieldChange}>
+                        </lightning-combobox>
+                        <lightning-textarea
+                            label="Message Template"
+                            value={stepData.notificationMessage}
+                            rows="3"
+                            placeholder={notificationPlaceholder}
+                            data-field="notificationMessage"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-textarea>
+                        <lightning-input
+                            label="Recipient (email or userId)"
+                            value={stepData.notificationRecipient}
+                            data-field="notificationRecipient"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+                    </div>
+                </template>
+
+                <!-- ── SUBFLOW fields ── -->
+                <template if:true={isSubflow}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Sub-Workflow</p>
+                        <lightning-input
+                            label="Child Workflow Name"
+                            value={stepData.childWorkflowName}
+                            placeholder="Name of the AI_Workflow__c record"
+                            data-field="childWorkflowName"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-input>
+                    </div>
+                </template>
+
+                <!-- ── Condition field (all non-START/END types) ── -->
+                <template if:true={showCondition}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Step Condition (optional)</p>
+                        <lightning-textarea
+                            label="Skip condition"
+                            value={stepData.condition}
+                            rows="2"
+                            placeholder="If true, this step is skipped"
+                            data-field="condition"
+                            onchange={handleFieldChange}>
+                        </lightning-textarea>
+                    </div>
+                </template>
+
+                <!-- Apply button -->
+                <div class="props-footer">
+                    <lightning-button
+                        label="Apply"
+                        variant="brand"
+                        onclick={handleApply}>
+                    </lightning-button>
+                    <lightning-button
+                        label="Delete Node"
+                        variant="destructive"
+                        icon-name="utility:delete"
+                        onclick={handleDelete}>
+                    </lightning-button>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

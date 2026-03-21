@@ -1,0 +1,99 @@
+<template>
+    <!-- Workflow selector / header bar -->
+    <lightning-card title="AI Workflow Builder" icon-name="utility:flow">
+        <div slot="actions">
+            <lightning-button-group>
+                <lightning-button
+                    label="New Workflow"
+                    icon-name="utility:add"
+                    onclick={handleNewWorkflow}>
+                </lightning-button>
+                <lightning-combobox
+                    class="workflow-selector"
+                    label=""
+                    value={activeWorkflowId}
+                    options={workflowOptions}
+                    placeholder="Open a workflow..."
+                    variant="label-hidden"
+                    onchange={handleWorkflowSelect}>
+                </lightning-combobox>
+            </lightning-button-group>
+        </div>
+
+        <!-- Three-column layout: palette | canvas | properties -->
+        <div class="builder-layout">
+
+            <!-- Left: Node Palette -->
+            <c-ai-node-palette
+                onnodeadd={handleNodeAdd}>
+            </c-ai-node-palette>
+
+            <!-- Centre: Canvas -->
+            <div
+                class="canvas-drop-zone"
+                ondragover={handleDragOver}
+                ondrop={handleDrop}>
+                <c-ai-workflow-designer
+                    workflow-id={activeWorkflowId}
+                    onnodeselect={handleNodeSelect}
+                    onnodeunselect={handleNodeUnselect}
+                    onexecutionstarted={handleExecutionStarted}>
+                </c-ai-workflow-designer>
+            </div>
+
+            <!-- Right: Properties Panel -->
+            <c-ai-properties-panel
+                selected-node={selectedNode}
+                providers={providers}
+                onstepupdate={handleStepUpdate}
+                onstepdelete={handleStepDelete}>
+            </c-ai-properties-panel>
+
+        </div>
+    </lightning-card>
+
+    <!-- New Workflow Modal -->
+    <template if:true={showNewModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <h2 class="slds-modal__title">New Workflow</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close" onclick={closeNewModal}>
+                        <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                    </button>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input
+                        label="Workflow Name"
+                        value={newWorkflowName}
+                        onchange={handleNewNameChange}
+                        required
+                        maxlength="80">
+                    </lightning-input>
+                    <lightning-textarea
+                        label="Description"
+                        value={newWorkflowDesc}
+                        onchange={handleNewDescChange}
+                        rows="3">
+                    </lightning-textarea>
+                    <lightning-input
+                        label="Trigger Object API Name"
+                        value={newWorkflowObject}
+                        placeholder="e.g. Lead, Case, Opportunity"
+                        onchange={handleNewObjectChange}>
+                    </lightning-input>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeNewModal}></lightning-button>
+                    <lightning-button
+                        label="Create"
+                        variant="brand"
+                        onclick={handleCreateWorkflow}
+                        disabled={isCreating}>
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

@@ -83,60 +83,79 @@ public with sharing class AIWorkflowOrchestrator {
                 if (!step.Is_Active__c) continue;
 
                 AI_Step_Execution__c stepExec = writer.createStepExecution(execution.Id, step.Id);
+                Datetime stepStart = Datetime.now();
 
-                // Resolve prompt
-                String resolvedPrompt;
-                try {
-                    String triggerObject = step.AI_Workflow__r != null ? step.AI_Workflow__r.Trigger_Object__c : null;
-                    if (triggerRecordId != null && String.isNotBlank(triggerObject)) {
-                        resolvedPrompt = AIPromptTemplateService.resolve(
-                            step.Prompt_Template__c,
-                            triggerRecordId,
-                            triggerObject
-                        );
-                    } else {
-                        Map<String, String> contextStr = new Map<String, String>();
-                        for (String k : context.keySet()) {
-                            contextStr.put(k, String.valueOf(context.get(k)));
+                // Route to registered handler OR fall back to AI inference
+                AIStepHandler handler = AIStepHandlerRegistry.get(step.Step_Type__c);
+
+                AIStepResult stepResult;
+                if (handler != null) {
+                    // Non-AI step (DECISION, HTTP, APEX, FLOW, WAIT, NOTIFICATION, START, END)
+                    stepResult = handler.execute(step, context, triggerRecordId);
+                } else {
+                    // AI_INFERENCE (and any unregistered type) — use inference service
+                    String resolvedPrompt;
+                    try {
+                        String triggerObj = step.AI_Workflow__r != null ? step.AI_Workflow__r.Trigger_Object__c : null;
+                        if (triggerRecordId != null && String.isNotBlank(triggerObj)) {
+                            resolvedPrompt = AIPromptTemplateService.resolve(step.Prompt_Template__c, triggerRecordId, triggerObj);
+                        } else {
+                            Map<String, String> contextStr = new Map<String, String>();
+                            for (String k : context.keySet()) { contextStr.put(k, String.valueOf(context.get(k))); }
+                            resolvedPrompt = AIPromptTemplateService.resolveWithMap(step.Prompt_Template__c, contextStr);
                         }
-                        resolvedPrompt = AIPromptTemplateService.resolveWithMap(step.Prompt_Template__c, contextStr);
+                    } catch (Exception e) {
+                        writer.failStepExecution(stepExec.Id, 'Prompt resolution failed: ' + e.getMessage());
+                        allPassed = false; lastError = e.getMessage(); break;
                     }
-                } catch (Exception e) {
-                    writer.failStepExecution(stepExec.Id, 'Prompt resolution failed: ' + e.getMessage());
-                    allPassed = false;
-                    lastError = e.getMessage();
-                    break;
+
+                    AIInferenceService.AIInferenceRequest req = new AIInferenceService.AIInferenceRequest();
+                    req.providerDeveloperName = step.AI_Provider_Developer_Name__c;
+                    req.modelOverride         = step.Model_Override__c;
+                    req.systemPrompt          = step.System_Prompt__c;
+                    req.userPrompt            = resolvedPrompt;
+                    req.temperature           = step.Temperature_Override__c;
+                    req.maxTokens             = step.Max_Tokens_Override__c != null ? step.Max_Tokens_Override__c.intValue() : null;
+                    req.responseFormat        = step.Response_Format__c;
+
+                    writer.updateStepPrompt(stepExec.Id, resolvedPrompt);
+                    AIInferenceService.AIInferenceResponse aiResp = AIInferenceService.run(req);
+                    Long dur = Datetime.now().getTime() - stepStart.getTime();
+
+                    if (aiResp.success) {
+                        stepResult = AIStepResult.ok(aiResp.content);
+                        stepResult.durationMs = dur.intValue();
+                        writer.completeStepExecution(stepExec.Id, aiResp, dur.intValue());
+                    } else {
+                        writer.failStepExecution(stepExec.Id, aiResp.errorMessage);
+                        allPassed = false; lastError = aiResp.errorMessage; break;
+                    }
                 }
 
-                // Build inference request
-                AIInferenceService.AIInferenceRequest req = new AIInferenceService.AIInferenceRequest();
-                req.providerDeveloperName = step.AI_Provider_Developer_Name__c;
-                req.modelOverride         = step.Model_Override__c;
-                req.systemPrompt          = step.System_Prompt__c;
-                req.userPrompt            = resolvedPrompt;
-                req.temperature           = step.Temperature_Override__c;
-                req.maxTokens             = step.Max_Tokens_Override__c != null
-                                            ? step.Max_Tokens_Override__c.intValue() : null;
-                req.responseFormat        = step.Response_Format__c;
-
-                writer.updateStepPrompt(stepExec.Id, resolvedPrompt);
-
-                Datetime stepStart = Datetime.now();
-                AIInferenceService.AIInferenceResponse aiResp = AIInferenceService.run(req);
-                Long durationMs = Datetime.now().getTime() - stepStart.getTime();
-
-                if (aiResp.success) {
-                    if (String.isNotBlank(step.Output_Field__c) && triggerRecordId != null) {
-                        writeOutputToRecord(triggerRecordId, workflow.Trigger_Object__c, step.Output_Field__c, aiResp.content);
+                // Process stepResult (from non-AI handler)
+                if (handler != null) {
+                    Long dur = Datetime.now().getTime() - stepStart.getTime();
+                    if (stepResult.success) {
+                        if (String.isNotBlank(step.Output_Field__c) && triggerRecordId != null && String.isNotBlank(stepResult.output)) {
+                            writeOutputToRecord(triggerRecordId, workflow.Trigger_Object__c, step.Output_Field__c, stepResult.output);
+                        }
+                        context.put('step_' + step.Order__c + '_output', stepResult.output != null ? stepResult.output : '');
+                        context.put('step_' + step.Order__c + '_branch', stepResult.nextBranch != null ? stepResult.nextBranch : 'SUCCESS');
+                        writer.completeHandlerStepExecution(stepExec.Id, stepResult, dur.intValue());
+                    } else {
+                        writer.failStepExecution(stepExec.Id, stepResult.errorMessage);
+                        allPassed = false; lastError = stepResult.errorMessage; break;
                     }
-                    context.put('step_' + step.Order__c + '_output', aiResp.content);
-                    context.put('step_' + step.Order__c + '_model', aiResp.modelUsed);
-                    writer.completeStepExecution(stepExec.Id, aiResp, durationMs.intValue());
                 } else {
-                    writer.failStepExecution(stepExec.Id, aiResp.errorMessage);
-                    allPassed = false;
-                    lastError = aiResp.errorMessage;
-                    break;
+                    // AI result — context already written above in the else branch
+                    if (stepResult.success) {
+                        if (String.isNotBlank(step.Output_Field__c) && triggerRecordId != null) {
+                            writeOutputToRecord(triggerRecordId, workflow.Trigger_Object__c, step.Output_Field__c, stepResult.output);
+                        }
+                        context.put('step_' + step.Order__c + '_output', stepResult.output != null ? stepResult.output : '');
+                    } else {
+                        allPassed = false; lastError = stepResult.errorMessage; break;
+                    }
                 }
             }
         } catch (Exception e) {
@@ -184,7 +203,7 @@ public with sharing class AIWorkflowOrchestrator {
             SELECT Id, Name, Order__c, Is_Active__c, AI_Provider_Developer_Name__c,
                    Model_Override__c, Prompt_Template__c, System_Prompt__c,
                    Output_Field__c, Temperature_Override__c, Max_Tokens_Override__c,
-                   Response_Format__c, Step_Type__c,
+                   Response_Format__c, Step_Type__c, Condition__c,
                    AI_Workflow__r.Trigger_Object__c
             FROM AI_Step__c
             WHERE AI_Workflow__c = :workflowId
@@ -288,6 +307,16 @@ public with sharing class AIWorkflowOrchestrator {
                 Completion_Tokens__c= resp.completionTokens,
                 HTTP_Status_Code__c = resp.httpStatusCode,
                 Duration_Ms__c      = durationMs
+            );
+        }
+
+        void completeHandlerStepExecution(Id stepExecId, AIStepResult result, Integer durationMs) {
+            update new AI_Step_Execution__c(
+                Id               = stepExecId,
+                Status__c        = 'COMPLETED',
+                Parsed_Output__c = result.output != null ? result.output.left(131072) : null,
+                Error_Message__c = null,
+                Duration_Ms__c   = durationMs
             );
         }
 

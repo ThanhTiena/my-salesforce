@@ -1,0 +1,82 @@
+.props-root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #ffffff;
+    border-left: 1px solid #dddbda;
+    min-width: 280px;
+    max-width: 320px;
+}
+
+.props-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    font-size: 0.8rem;
+    color: #706e6b;
+    text-align: center;
+}
+
+/* ── Header ── */
+.props-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #f3f3f3;
+    border-bottom: 1px solid #dddbda;
+}
+
+.props-node-icon {
+    font-size: 1.25rem;
+}
+
+.props-node-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #032d60;
+}
+
+/* ── Body ── */
+.props-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.props-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.props-section--bordered {
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.props-section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #706e6b;
+    margin: 0 0 0.25rem;
+}
+
+/* ── Footer ── */
+.props-footer {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f3f3f3;
+    margin-top: 0.5rem;
+}

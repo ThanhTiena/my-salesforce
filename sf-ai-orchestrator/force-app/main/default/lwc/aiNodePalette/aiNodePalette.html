@@ -1,0 +1,40 @@
+<template>
+    <div class="palette-root">
+        <div class="palette-header">
+            <span class="palette-title">Node Types</span>
+        </div>
+
+        <div class="palette-search">
+            <lightning-input
+                type="search"
+                placeholder="Search nodes..."
+                value={searchTerm}
+                onchange={handleSearch}
+                variant="label-hidden">
+            </lightning-input>
+        </div>
+
+        <div class="palette-list">
+            <template for:each={filteredNodes} for:item="node">
+                <div
+                    key={node.type}
+                    class={node.cssClass}
+                    draggable="true"
+                    data-type={node.type}
+                    ondragstart={handleDragStart}
+                    onclick={handleNodeClick}
+                    title={node.description}>
+                    <span class="palette-node-icon">{node.icon}</span>
+                    <div class="palette-node-info">
+                        <span class="palette-node-label">{node.label}</span>
+                        <span class="palette-node-desc">{node.description}</span>
+                    </div>
+                </div>
+            </template>
+
+            <template if:true={isEmpty}>
+                <p class="palette-empty">No nodes match your search.</p>
+            </template>
+        </div>
+    </div>
+</template>

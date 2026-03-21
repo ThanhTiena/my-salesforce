@@ -1,0 +1,61 @@
+<template>
+    <div class="designer-root">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <span class="toolbar-title">{workflowName}</span>
+            <div class="toolbar-actions">
+                <lightning-badge if:true={isDirty} label="Unsaved changes" class="badge-warning"></lightning-badge>
+                <lightning-badge label={statusLabel} class={statusBadgeClass}></lightning-badge>
+                <lightning-button
+                    label="Save"
+                    icon-name="utility:save"
+                    variant="neutral"
+                    onclick={handleSave}
+                    disabled={isSaving}>
+                </lightning-button>
+                <lightning-button
+                    if:true={isActive}
+                    label="Deactivate"
+                    icon-name="utility:pause"
+                    variant="neutral"
+                    onclick={handleToggleActive}>
+                </lightning-button>
+                <lightning-button
+                    if:false={isActive}
+                    label="Activate"
+                    icon-name="utility:play"
+                    variant="success"
+                    onclick={handleToggleActive}
+                    disabled={isDirty}>
+                </lightning-button>
+                <lightning-button
+                    label="Run Now"
+                    icon-name="utility:apex"
+                    variant="brand"
+                    onclick={handleRunNow}
+                    disabled={isNotActive}>
+                </lightning-button>
+            </div>
+        </div>
+
+        <!-- Canvas area -->
+        <div class="canvas-container">
+            <!-- Drawflow renders here; lwc:dom="manual" gives Drawflow full DOM control -->
+            <div class="drawflow-wrapper" lwc:dom="manual" data-id="canvas"></div>
+
+            <!-- Loading overlay -->
+            <template if:true={isLoading}>
+                <div class="canvas-overlay">
+                    <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+                </div>
+            </template>
+
+            <!-- Empty state -->
+            <template if:true={isEmpty}>
+                <div class="canvas-empty">
+                    <p>Drag a node from the palette on the left to start building your workflow.</p>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>
