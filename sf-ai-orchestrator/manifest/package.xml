@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <version>61.0</version>
+
+    <!-- ── Apex Classes ─────────────────────────────────────────────────── -->
+    <types>
+        <members>AIProviderAdapter</members>
+        <members>AISecurityUtil</members>
+        <members>AIInferenceService</members>
+        <members>AIPromptTemplateService</members>
+        <members>AIAdapterOpenAI</members>
+        <members>AIAdapterAnthropic</members>
+        <members>AIAdapterGoogle</members>
+        <members>AIAdapterAzureOpenAI</members>
+        <members>AIAdapterCohere</members>
+        <members>AIAdapterMistral</members>
+        <members>AIWorkflowOrchestrator</members>
+        <members>AIWorkflowQueueable</members>
+        <members>AIExecutionMonitorController</members>
+        <!-- Test classes -->
+        <members>AISecurityUtilTest</members>
+        <members>AIInferenceServiceTest</members>
+        <members>AIPromptTemplateServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <!-- ── Custom Objects ───────────────────────────────────────────────── -->
+    <types>
+        <members>AI_Workflow__c</members>
+        <members>AI_Step__c</members>
+        <members>AI_Execution__c</members>
+        <members>AI_Step_Execution__c</members>
+        <name>CustomObject</name>
+    </types>
+
+    <!-- ── Custom Fields — AI_Workflow__c ──────────────────────────────── -->
+    <types>
+        <members>AI_Workflow__c.Description__c</members>
+        <members>AI_Workflow__c.Is_Active__c</members>
+        <members>AI_Workflow__c.Last_Executed__c</members>
+        <members>AI_Workflow__c.Max_Retries__c</members>
+        <members>AI_Workflow__c.Notification_Email__c</members>
+        <members>AI_Workflow__c.Retry_Delay_Seconds__c</members>
+        <members>AI_Workflow__c.Total_Executions__c</members>
+        <members>AI_Workflow__c.Trigger_Condition__c</members>
+        <members>AI_Workflow__c.Trigger_Object__c</members>
+        <members>AI_Workflow__c.Version__c</members>
+        <!-- Custom Fields — AI_Step__c -->
+        <members>AI_Step__c.AI_Provider_Developer_Name__c</members>
+        <members>AI_Step__c.AI_Workflow__c</members>
+        <members>AI_Step__c.Condition__c</members>
+        <members>AI_Step__c.Is_Active__c</members>
+        <members>AI_Step__c.Max_Tokens_Override__c</members>
+        <members>AI_Step__c.Model_Override__c</members>
+        <members>AI_Step__c.Order__c</members>
+        <members>AI_Step__c.Output_Field__c</members>
+        <members>AI_Step__c.Prompt_Template__c</members>
+        <members>AI_Step__c.Response_Format__c</members>
+        <members>AI_Step__c.Step_Type__c</members>
+        <members>AI_Step__c.System_Prompt__c</members>
+        <members>AI_Step__c.Temperature_Override__c</members>
+        <!-- Custom Fields — AI_Execution__c -->
+        <members>AI_Execution__c.AI_Workflow__c</members>
+        <members>AI_Execution__c.Completed_At__c</members>
+        <members>AI_Execution__c.Context_JSON__c</members>
+        <members>AI_Execution__c.Duration_Seconds__c</members>
+        <members>AI_Execution__c.Error_Message__c</members>
+        <members>AI_Execution__c.Initiated_By__c</members>
+        <members>AI_Execution__c.Retry_Count__c</members>
+        <members>AI_Execution__c.Started_At__c</members>
+        <members>AI_Execution__c.Status__c</members>
+        <members>AI_Execution__c.Total_Tokens_Used__c</members>
+        <members>AI_Execution__c.Trigger_Object__c</members>
+        <members>AI_Execution__c.Trigger_Record_Id__c</members>
+        <!-- Custom Fields — AI_Step_Execution__c -->
+        <members>AI_Step_Execution__c.AI_Execution__c</members>
+        <members>AI_Step_Execution__c.AI_Step__c</members>
+        <members>AI_Step_Execution__c.Completion_Tokens__c</members>
+        <members>AI_Step_Execution__c.Duration_Ms__c</members>
+        <members>AI_Step_Execution__c.Error_Message__c</members>
+        <members>AI_Step_Execution__c.HTTP_Status_Code__c</members>
+        <members>AI_Step_Execution__c.Model_Used__c</members>
+        <members>AI_Step_Execution__c.Parsed_Output__c</members>
+        <members>AI_Step_Execution__c.Prompt_Sent__c</members>
+        <members>AI_Step_Execution__c.Prompt_Tokens__c</members>
+        <members>AI_Step_Execution__c.Provider_Used__c</members>
+        <members>AI_Step_Execution__c.Raw_Response__c</members>
+        <members>AI_Step_Execution__c.Retry_Attempt__c</members>
+        <members>AI_Step_Execution__c.Status__c</members>
+        <members>AI_Step_Execution__c.Tokens_Used__c</members>
+        <!-- Custom Fields — AI_Provider__mdt -->
+        <members>AI_Provider__mdt.API_Version__c</members>
+        <members>AI_Provider__mdt.Custom_Headers_JSON__c</members>
+        <members>AI_Provider__mdt.Default_Model__c</members>
+        <members>AI_Provider__mdt.Endpoint_URL__c</members>
+        <members>AI_Provider__mdt.Is_Active__c</members>
+        <members>AI_Provider__mdt.Max_Tokens__c</members>
+        <members>AI_Provider__mdt.Named_Credential_API_Name__c</members>
+        <members>AI_Provider__mdt.Provider_Type__c</members>
+        <members>AI_Provider__mdt.Rate_Limit_RPM__c</members>
+        <members>AI_Provider__mdt.Rate_Limit_TPM__c</members>
+        <members>AI_Provider__mdt.Supports_Streaming__c</members>
+        <members>AI_Provider__mdt.Temperature__c</members>
+        <members>AI_Provider__mdt.Timeout_Seconds__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <!-- ── Named Credentials ─────────────────────────────────────────────── -->
+    <types>
+        <members>AI_OpenAI</members>
+        <members>AI_Anthropic</members>
+        <members>AI_Google_Gemini</members>
+        <members>AI_Cohere</members>
+        <members>AI_Mistral</members>
+        <name>NamedCredential</name>
+    </types>
+
+    <!-- ── Lightning Web Components ──────────────────────────────────────── -->
+    <types>
+        <members>aiExecutionMonitor</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <!-- ── Permission Sets ───────────────────────────────────────────────── -->
+    <types>
+        <members>AI_Orchestration_Admin</members>
+        <members>AI_Orchestration_User</members>
+        <name>PermissionSet</name>
+    </types>
+
+</Package>

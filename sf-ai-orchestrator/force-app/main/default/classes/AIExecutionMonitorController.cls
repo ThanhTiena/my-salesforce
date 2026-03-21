@@ -50,7 +50,7 @@ public with sharing class AIExecutionMonitorController {
             SELECT Id, Name, Status__c, Provider_Used__c, Model_Used__c,
                    Tokens_Used__c, Prompt_Tokens__c, Completion_Tokens__c,
                    HTTP_Status_Code__c, Duration_Ms__c, Error_Message__c,
-                   Retry_Attempt__c, AI_Step__r.Name
+                   Retry_Attempt__c, AI_Step__c
             FROM AI_Step_Execution__c
             WHERE AI_Execution__c = :executionId
             ORDER BY CreatedDate ASC

@@ -1,24 +1,19 @@
 /**
  * AIPromptTemplateServiceTest
- *
  * Unit tests for prompt template resolution and injection prevention.
- *
- * @author  AI Orchestration Package
- * @version 1.0
  */
 @IsTest
 private class AIPromptTemplateServiceTest {
 
     @TestSetup
     static void setup() {
-        Account acc = new Account(Name = 'Acme Corp', Phone = '555-1234', Website = 'https://acme.com');
+        Account acc = new Account(Name = 'Acme Corp', Phone = '555-1234');
         insert acc;
     }
 
     @IsTest
     static void testResolveBasicVariable() {
         Account acc = [SELECT Id FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
-
         Test.startTest();
         String resolved = AIPromptTemplateService.resolve(
             'Analyse account: {{Account.Name}}',
@@ -26,7 +21,6 @@ private class AIPromptTemplateServiceTest {
             'Account'
         );
         Test.stopTest();
-
         Assert.isTrue(resolved.contains('Acme Corp'), 'Should interpolate Name field');
         Assert.isFalse(resolved.contains('{{'), 'Should remove all tokens');
     }
@@ -34,7 +28,6 @@ private class AIPromptTemplateServiceTest {
     @IsTest
     static void testResolveMultipleVariables() {
         Account acc = [SELECT Id FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
-
         Test.startTest();
         String resolved = AIPromptTemplateService.resolve(
             'Account: {{Account.Name}}, Phone: {{Account.Phone}}',
@@ -42,7 +35,6 @@ private class AIPromptTemplateServiceTest {
             'Account'
         );
         Test.stopTest();
-
         Assert.isTrue(resolved.contains('Acme Corp'));
         Assert.isTrue(resolved.contains('555-1234'));
     }
@@ -50,7 +42,6 @@ private class AIPromptTemplateServiceTest {
     @IsTest
     static void testResolveNoVariables() {
         Account acc = [SELECT Id FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
-
         Test.startTest();
         String resolved = AIPromptTemplateService.resolve(
             'Simple prompt with no variables.',
@@ -58,7 +49,6 @@ private class AIPromptTemplateServiceTest {
             'Account'
         );
         Test.stopTest();
-
         Assert.areEqual('Simple prompt with no variables.', resolved);
     }
 
@@ -68,14 +58,12 @@ private class AIPromptTemplateServiceTest {
             'Account.Name'    => 'Test Corp',
             'Account.Website' => 'https://test.com'
         };
-
         Test.startTest();
         String resolved = AIPromptTemplateService.resolveWithMap(
             'Company: {{Account.Name}}, URL: {{Account.Website}}',
             vars
         );
         Test.stopTest();
-
         Assert.isTrue(resolved.contains('Test Corp'));
         Assert.isTrue(resolved.contains('https://test.com'));
     }
@@ -83,7 +71,6 @@ private class AIPromptTemplateServiceTest {
     @IsTest
     static void testBlankTemplateThrows() {
         Account acc = [SELECT Id FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
-
         Test.startTest();
         try {
             AIPromptTemplateService.resolve('', acc.Id, 'Account');
@@ -97,10 +84,10 @@ private class AIPromptTemplateServiceTest {
     @IsTest
     static void testInvalidObjectNameThrows() {
         Account acc = [SELECT Id FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
-
+        String badObjectName = 'Account; DROP TABLE';
         Test.startTest();
         try {
-            AIPromptTemplateService.resolve('Test {{Account.Name}}', acc.Id, 'Account; DROP TABLE');
+            AIPromptTemplateService.resolve('Test {{Account.Name}}', acc.Id, badObjectName);
             Assert.fail('Should throw for invalid object name');
         } catch (AISecurityUtil.InputException e) {
             Assert.isTrue(true, 'Correctly rejected invalid object name');
@@ -111,10 +98,10 @@ private class AIPromptTemplateServiceTest {
     @IsTest
     static void testUnknownObjectThrows() {
         Account acc = [SELECT Id FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
-
         Test.startTest();
         try {
-            AIPromptTemplateService.resolve('Test {{FakeObj.Name}}', acc.Id, 'FakeObject__c');
+            // Object name in token must match the objectName param to trigger the lookup
+            AIPromptTemplateService.resolve('Test {{FakeObject__c.Name}}', acc.Id, 'FakeObject__c');
             Assert.fail('Should throw for unknown object');
         } catch (AIPromptTemplateService.TemplateException e) {
             Assert.isTrue(true, 'Correctly rejected unknown object');
@@ -124,9 +111,9 @@ private class AIPromptTemplateServiceTest {
 
     @IsTest
     static void testPromptInjectionInFieldValue() {
-        // Field value contains {{ }} — should be escaped to prevent prompt injection
         Account acc = [SELECT Id FROM Account LIMIT 1];
-        update new Account(Id = acc.Id, Name = 'Evil {{Account.Phone}} Corp');
+        String evilName = 'Evil {{Account.Phone}} Corp';
+        update new Account(Id = acc.Id, Name = evilName);
 
         Test.startTest();
         String resolved = AIPromptTemplateService.resolve(
@@ -135,15 +122,12 @@ private class AIPromptTemplateServiceTest {
             'Account'
         );
         Test.stopTest();
-
-        // The {{ in the field value should be escaped
         Assert.isFalse(resolved.contains('{{Account.Phone}}'), 'Nested template tokens should be escaped');
     }
 
     @IsTest
     static void testRecordNotFoundThrows() {
         Id fakeId = '001000000000001AAA';
-
         Test.startTest();
         try {
             AIPromptTemplateService.resolve('Test {{Account.Name}}', fakeId, 'Account');

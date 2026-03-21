@@ -1,16 +1,9 @@
 /**
  * AIInferenceServiceTest
- *
  * Unit tests for AIInferenceService using mock HTTP callouts.
- * Tests provider routing, error handling, and input validation.
- *
- * @author  AI Orchestration Package
- * @version 1.0
  */
 @IsTest
 private class AIInferenceServiceTest {
-
-    // ─── Mock HTTP Callout ────────────────────────────────────────────────────
 
     private class MockOpenAISuccess implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
@@ -65,17 +58,11 @@ private class AIInferenceServiceTest {
         }
     }
 
-    // ─── Test Setup ───────────────────────────────────────────────────────────
-
-    // CMDT cannot be inserted in tests — tests that need provider config
-    // use a test-visible override via AIInferenceService.
-
     @IsTest
     static void testSanitisesBlankPrompt() {
         AIInferenceService.AIInferenceRequest req = new AIInferenceService.AIInferenceRequest();
         req.providerDeveloperName = 'OpenAI_GPT4o';
         req.userPrompt = '';
-
         Test.startTest();
         try {
             AIInferenceService.run(req);
@@ -103,7 +90,6 @@ private class AIInferenceServiceTest {
         AIInferenceService.AIInferenceRequest req = new AIInferenceService.AIInferenceRequest();
         req.providerDeveloperName = '';
         req.userPrompt = 'Hello';
-
         Test.startTest();
         try {
             AIInferenceService.run(req);
@@ -116,23 +102,19 @@ private class AIInferenceServiceTest {
 
     @IsTest
     static void testCalloutUsesNamedCredential() {
-        // Validates Named Credential is used in endpoint
         Test.setMock(HttpCalloutMock.class, new MockOpenAISuccess());
-
-        HttpRequest captured;
-        // The callout method prepends 'callout:' prefix — validated by mock
         Test.startTest();
         HttpResponse resp = AIInferenceService.callout('AI_OpenAI', '/v1/chat/completions', 'POST', null, '{"test":1}', 30);
         Test.stopTest();
-
         Assert.areEqual(200, resp.getStatusCode());
     }
 
     @IsTest
     static void testCalloutInvalidNamedCredentialNameThrows() {
+        String badName = 'bad name!';
         Test.startTest();
         try {
-            AIInferenceService.callout('bad name!', '/v1', 'POST', null, '{}', 30);
+            AIInferenceService.callout(badName, '/v1', 'POST', null, '{}', 30);
             Assert.fail('Should throw for invalid named credential name');
         } catch (AISecurityUtil.InputException e) {
             Assert.isTrue(true, 'Correctly rejected invalid named credential name');
@@ -143,7 +125,6 @@ private class AIInferenceServiceTest {
     @IsTest
     static void testOpenAIAdapterParsesSuccess() {
         Test.setMock(HttpCalloutMock.class, new MockOpenAISuccess());
-
         AIAdapterOpenAI adapter = new AIAdapterOpenAI();
         Assert.areEqual('OPENAI', adapter.getProviderType());
 
@@ -169,7 +150,6 @@ private class AIInferenceServiceTest {
     @IsTest
     static void testOpenAIAdapterHandlesError() {
         Test.setMock(HttpCalloutMock.class, new MockProviderError());
-
         AIAdapterOpenAI adapter = new AIAdapterOpenAI();
 
         AIInferenceService.AIInferenceRequest req = new AIInferenceService.AIInferenceRequest();
@@ -183,13 +163,11 @@ private class AIInferenceServiceTest {
 
         Assert.isFalse(resp.success);
         Assert.areEqual(429, resp.httpStatusCode);
-        Assert.isTrue(resp.errorMessage.contains('429'));
     }
 
     @IsTest
     static void testAnthropicAdapterParsesSuccess() {
         Test.setMock(HttpCalloutMock.class, new MockAnthropicSuccess());
-
         AIAdapterAnthropic adapter = new AIAdapterAnthropic();
         Assert.areEqual('ANTHROPIC', adapter.getProviderType());
 

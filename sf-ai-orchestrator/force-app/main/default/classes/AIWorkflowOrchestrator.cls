@@ -52,8 +52,9 @@ public with sharing class AIWorkflowOrchestrator {
      * Executes all active steps of a workflow in order.
      * Each step's output is added to the execution context for subsequent steps.
      */
-    @TestVisible
-    static void runWorkflow(Id workflowId, Id triggerRecordId, Id executionId, Integer retryCount) {
+    public static void runWorkflow(Id workflowId, Id triggerRecordId, Id executionId, Integer retryCount) {
+
+        SystemWriter writer = new SystemWriter();
 
         // 1. Load workflow + steps
         AI_Workflow__c workflow = loadWorkflow(workflowId);
@@ -62,7 +63,7 @@ public with sharing class AIWorkflowOrchestrator {
         // 2. Create or reuse execution record
         AI_Execution__c execution;
         if (executionId == null) {
-            execution = SystemWriter.createExecution(workflow, triggerRecordId);
+            execution = writer.createExecution(workflow, triggerRecordId);
         } else {
             execution = [SELECT Id, Status__c, Context_JSON__c, Retry_Count__c
                          FROM AI_Execution__c WHERE Id = :executionId LIMIT 1];
@@ -71,7 +72,7 @@ public with sharing class AIWorkflowOrchestrator {
         Map<String, Object> context = AISecurityUtil.safeDeserialise(execution.Context_JSON__c);
 
         // 3. Update status to RUNNING
-        SystemWriter.updateExecutionStatus(execution.Id, 'RUNNING', null);
+        writer.updateExecutionStatus(execution.Id, 'RUNNING', null);
 
         Datetime startTime = Datetime.now();
         Boolean  allPassed = true;
@@ -81,19 +82,19 @@ public with sharing class AIWorkflowOrchestrator {
             for (AI_Step__c step : steps) {
                 if (!step.Is_Active__c) continue;
 
-                AI_Step_Execution__c stepExec = SystemWriter.createStepExecution(execution.Id, step.Id);
+                AI_Step_Execution__c stepExec = writer.createStepExecution(execution.Id, step.Id);
 
                 // Resolve prompt
                 String resolvedPrompt;
                 try {
-                    if (triggerRecordId != null && String.isNotBlank(step.AI_Workflow__r?.Trigger_Object__c)) {
+                    String triggerObject = step.AI_Workflow__r != null ? step.AI_Workflow__r.Trigger_Object__c : null;
+                    if (triggerRecordId != null && String.isNotBlank(triggerObject)) {
                         resolvedPrompt = AIPromptTemplateService.resolve(
                             step.Prompt_Template__c,
                             triggerRecordId,
-                            step.AI_Workflow__r.Trigger_Object__c
+                            triggerObject
                         );
                     } else {
-                        // No trigger record — resolve against context map
                         Map<String, String> contextStr = new Map<String, String>();
                         for (String k : context.keySet()) {
                             contextStr.put(k, String.valueOf(context.get(k)));
@@ -101,7 +102,7 @@ public with sharing class AIWorkflowOrchestrator {
                         resolvedPrompt = AIPromptTemplateService.resolveWithMap(step.Prompt_Template__c, contextStr);
                     }
                 } catch (Exception e) {
-                    SystemWriter.failStepExecution(stepExec.Id, 'Prompt resolution failed: ' + e.getMessage());
+                    writer.failStepExecution(stepExec.Id, 'Prompt resolution failed: ' + e.getMessage());
                     allPassed = false;
                     lastError = e.getMessage();
                     break;
@@ -118,29 +119,21 @@ public with sharing class AIWorkflowOrchestrator {
                                             ? step.Max_Tokens_Override__c.intValue() : null;
                 req.responseFormat        = step.Response_Format__c;
 
-                // Record prompt sent (audit)
-                SystemWriter.updateStepPrompt(stepExec.Id, resolvedPrompt);
+                writer.updateStepPrompt(stepExec.Id, resolvedPrompt);
 
                 Datetime stepStart = Datetime.now();
-
-                // Dispatch to inference service
                 AIInferenceService.AIInferenceResponse aiResp = AIInferenceService.run(req);
-
                 Long durationMs = Datetime.now().getTime() - stepStart.getTime();
 
                 if (aiResp.success) {
-                    // Write output to trigger record field (if configured)
                     if (String.isNotBlank(step.Output_Field__c) && triggerRecordId != null) {
                         writeOutputToRecord(triggerRecordId, workflow.Trigger_Object__c, step.Output_Field__c, aiResp.content);
                     }
-
-                    // Store in context for next step
                     context.put('step_' + step.Order__c + '_output', aiResp.content);
                     context.put('step_' + step.Order__c + '_model', aiResp.modelUsed);
-
-                    SystemWriter.completeStepExecution(stepExec.Id, aiResp, durationMs.intValue());
+                    writer.completeStepExecution(stepExec.Id, aiResp, durationMs.intValue());
                 } else {
-                    SystemWriter.failStepExecution(stepExec.Id, aiResp.errorMessage);
+                    writer.failStepExecution(stepExec.Id, aiResp.errorMessage);
                     allPassed = false;
                     lastError = aiResp.errorMessage;
                     break;
@@ -154,20 +147,16 @@ public with sharing class AIWorkflowOrchestrator {
         Long totalDuration = Datetime.now().getTime() - startTime.getTime();
 
         if (allPassed) {
-            SystemWriter.updateExecutionStatus(execution.Id, 'COMPLETED', null);
-            SystemWriter.updateExecutionDuration(execution.Id, totalDuration, context);
-            // Update workflow stats
-            SystemWriter.updateWorkflowStats(workflowId);
+            writer.updateExecutionStatus(execution.Id, 'COMPLETED', null);
+            writer.updateExecutionDuration(execution.Id, totalDuration, context);
+            writer.updateWorkflowStats(workflowId);
         } else {
-            // Retry logic
             Integer maxRetries = workflow.Max_Retries__c != null ? workflow.Max_Retries__c.intValue() : 3;
             if (retryCount < maxRetries) {
-                SystemWriter.updateExecutionStatus(execution.Id, 'RETRYING', lastError);
-                Integer delaySeconds = workflow.Retry_Delay_Seconds__c != null
-                                       ? workflow.Retry_Delay_Seconds__c.intValue() : 60;
+                writer.updateExecutionStatus(execution.Id, 'RETRYING', lastError);
                 System.enqueueJob(new AIWorkflowQueueable(workflowId, triggerRecordId, execution.Id, retryCount + 1));
             } else {
-                SystemWriter.updateExecutionStatus(execution.Id, 'FAILED', lastError);
+                writer.updateExecutionStatus(execution.Id, 'FAILED', lastError);
             }
         }
     }
@@ -231,7 +220,7 @@ public with sharing class AIWorkflowOrchestrator {
      */
     private without sharing class SystemWriter {
 
-        static AI_Execution__c createExecution(AI_Workflow__c workflow, Id triggerRecordId) {
+        AI_Execution__c createExecution(AI_Workflow__c workflow, Id triggerRecordId) {
             AI_Execution__c exec = new AI_Execution__c(
                 AI_Workflow__c      = workflow.Id,
                 Status__c           = 'PENDING',
@@ -245,7 +234,7 @@ public with sharing class AIWorkflowOrchestrator {
             return exec;
         }
 
-        static void updateExecutionStatus(Id execId, String status, String errorMsg) {
+        void updateExecutionStatus(Id execId, String status, String errorMsg) {
             update new AI_Execution__c(
                 Id            = execId,
                 Status__c     = status,
@@ -253,7 +242,7 @@ public with sharing class AIWorkflowOrchestrator {
             );
         }
 
-        static void updateExecutionDuration(Id execId, Long durationMs, Map<String, Object> context) {
+        void updateExecutionDuration(Id execId, Long durationMs, Map<String, Object> context) {
             update new AI_Execution__c(
                 Id                = execId,
                 Completed_At__c   = Datetime.now(),
@@ -262,14 +251,14 @@ public with sharing class AIWorkflowOrchestrator {
             );
         }
 
-        static void updateWorkflowStats(Id workflowId) {
+        void updateWorkflowStats(Id workflowId) {
             AI_Workflow__c wf = [SELECT Id, Total_Executions__c FROM AI_Workflow__c WHERE Id = :workflowId LIMIT 1];
             wf.Total_Executions__c = (wf.Total_Executions__c != null ? wf.Total_Executions__c : 0) + 1;
             wf.Last_Executed__c    = Datetime.now();
             update wf;
         }
 
-        static AI_Step_Execution__c createStepExecution(Id executionId, Id stepId) {
+        AI_Step_Execution__c createStepExecution(Id executionId, Id stepId) {
             AI_Step_Execution__c se = new AI_Step_Execution__c(
                 AI_Execution__c = executionId,
                 AI_Step__c      = stepId,
@@ -279,14 +268,14 @@ public with sharing class AIWorkflowOrchestrator {
             return se;
         }
 
-        static void updateStepPrompt(Id stepExecId, String prompt) {
+        void updateStepPrompt(Id stepExecId, String prompt) {
             update new AI_Step_Execution__c(
                 Id           = stepExecId,
                 Prompt_Sent__c = prompt.left(131072)
             );
         }
 
-        static void completeStepExecution(Id stepExecId, AIInferenceService.AIInferenceResponse resp, Integer durationMs) {
+        void completeStepExecution(Id stepExecId, AIInferenceService.AIInferenceResponse resp, Integer durationMs) {
             update new AI_Step_Execution__c(
                 Id                  = stepExecId,
                 Status__c           = 'COMPLETED',
@@ -302,7 +291,7 @@ public with sharing class AIWorkflowOrchestrator {
             );
         }
 
-        static void failStepExecution(Id stepExecId, String errorMsg) {
+        void failStepExecution(Id stepExecId, String errorMsg) {
             update new AI_Step_Execution__c(
                 Id            = stepExecId,
                 Status__c     = 'FAILED',

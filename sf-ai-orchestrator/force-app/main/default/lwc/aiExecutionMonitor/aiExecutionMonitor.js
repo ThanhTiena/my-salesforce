@@ -107,7 +107,7 @@ export default class AiExecutionMonitor extends LightningElement {
             const steps = await getStepExecutions({ executionId });
             this.selectedStepExecutions = steps.map(s => ({
                 ...s,
-                stepName: s.AI_Step__r?.Name ?? ''
+                stepName: s.AI_Step__c ?? ''
             }));
         } catch (err) {
             this.dispatchEvent(new ShowToastEvent({

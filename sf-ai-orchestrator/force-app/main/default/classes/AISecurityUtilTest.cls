@@ -1,31 +1,21 @@
 /**
  * AISecurityUtilTest
- *
  * Unit tests for the security utility class.
- * Covers CRUD guards, FLS guards, input sanitisation, and injection prevention.
- *
- * @author  AI Orchestration Package
- * @version 1.0
  */
 @IsTest
 private class AISecurityUtilTest {
 
-    // ─── CRUD Tests ──────────────────────────────────────────────────────────
-
     @IsTest
     static void testAssertReadable_Pass() {
-        // Account is always readable by default profiles
         Test.startTest();
         try {
             AISecurityUtil.assertReadable(Account.SObjectType);
             Assert.isTrue(true, 'Should not throw for readable object');
         } catch (AISecurityUtil.CRUDException e) {
-            Assert.fail('Should not throw CRUDException for readable object: ' + e.getMessage());
+            Assert.fail('Should not throw CRUDException: ' + e.getMessage());
         }
         Test.stopTest();
     }
-
-    // ─── Input Sanitisation Tests ────────────────────────────────────────────
 
     @IsTest
     static void testSanitisePrompt_BlankThrows() {
@@ -96,10 +86,12 @@ private class AISecurityUtilTest {
     }
 
     @IsTest
-    static void testSanitiseFieldName_SQLInjectionThrows() {
+    static void testSanitiseFieldName_InjectionThrows() {
+        // Use a string variable to avoid Apex parser issues with special chars
+        String injectionAttempt = 'Name' + String.fromCharArray(new List<Integer>{39}) + '; DELETE FROM Account';
         Test.startTest();
         try {
-            AISecurityUtil.sanitiseFieldName("Name'; DELETE FROM Account--");
+            AISecurityUtil.sanitiseFieldName(injectionAttempt);
             Assert.fail('Should throw for injection attempt');
         } catch (AISecurityUtil.InputException e) {
             Assert.isTrue(true, 'Correctly rejected injection attempt');
@@ -117,9 +109,10 @@ private class AISecurityUtilTest {
 
     @IsTest
     static void testSanitiseObjectName_InvalidThrows() {
+        String badName = 'Account; DROP TABLE Users';
         Test.startTest();
         try {
-            AISecurityUtil.sanitiseObjectName('Account; DROP TABLE');
+            AISecurityUtil.sanitiseObjectName(badName);
             Assert.fail('Should throw for invalid object name');
         } catch (AISecurityUtil.InputException e) {
             Assert.isTrue(true, 'Correctly rejected invalid object name');
@@ -131,19 +124,18 @@ private class AISecurityUtilTest {
     static void testSanitiseRecordId_ValidId() {
         Account acc = new Account(Name = 'Test');
         insert acc;
-
         Test.startTest();
         Id result = AISecurityUtil.sanitiseRecordId(acc.Id);
         Test.stopTest();
-
         Assert.areEqual(acc.Id, result, 'Should return valid Id');
     }
 
     @IsTest
     static void testSanitiseRecordId_InvalidThrows() {
+        String badId = 'not-a-valid-id';
         Test.startTest();
         try {
-            AISecurityUtil.sanitiseRecordId('not-a-valid-id');
+            AISecurityUtil.sanitiseRecordId(badId);
             Assert.fail('Should throw for invalid record ID');
         } catch (AISecurityUtil.InputException e) {
             Assert.isTrue(true, 'Correctly rejected invalid ID');
@@ -160,17 +152,16 @@ private class AISecurityUtilTest {
 
     @IsTest
     static void testSanitiseNamedCredentialName_InvalidThrows() {
+        String badName = 'bad name!';
         Test.startTest();
         try {
-            AISecurityUtil.sanitiseNamedCredentialName('bad name!');
+            AISecurityUtil.sanitiseNamedCredentialName(badName);
             Assert.fail('Should throw for invalid named credential name');
         } catch (AISecurityUtil.InputException e) {
             Assert.isTrue(true, 'Correctly rejected invalid named credential name');
         }
         Test.stopTest();
     }
-
-    // ─── JSON Safety Tests ────────────────────────────────────────────────────
 
     @IsTest
     static void testSafeDeserialise_ValidJSON() {
@@ -182,8 +173,9 @@ private class AISecurityUtilTest {
 
     @IsTest
     static void testSafeDeserialise_InvalidJSON_ReturnsEmpty() {
+        String badJson = 'not json {{';
         Test.startTest();
-        Map<String, Object> result = AISecurityUtil.safeDeserialise('not json {{');
+        Map<String, Object> result = AISecurityUtil.safeDeserialise(badJson);
         Test.stopTest();
         Assert.isTrue(result.isEmpty(), 'Should return empty map for invalid JSON');
     }

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>AI_Step__c</fullName>
-    <deleteConstraint>SetNull</deleteConstraint>
+    <deleteConstraint>Restrict</deleteConstraint>
     <label>AI Step</label>
     <referenceTo>AI_Step__c</referenceTo>
-    <relationshipLabel>Step Executions</relationshipLabel>
-    <relationshipName>Step_Executions</relationshipName>
+    <relationshipLabel>AI Step Executions</relationshipLabel>
+    <relationshipName>AI_Step_Executions</relationshipName>
     <required>true</required>
     <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
