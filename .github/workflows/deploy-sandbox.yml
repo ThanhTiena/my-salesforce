@@ -1,0 +1,179 @@
+# ==============================================================================
+# Workflow: Deploy to Sandbox
+# ==============================================================================
+# Triggers on merge to main. Builds assets (if needed), then deploys to sandbox.
+# Only queues one deployment at a time per environment — never runs two deploys
+# in parallel against the same org.
+#
+# Jobs:
+#   detect-changes  → confirm something Salesforce-relevant changed
+#   build-assets    → Webpack bundle (conditional)
+#   deploy          → sf project deploy (real, no --dry-run)
+# ==============================================================================
+
+name: Deploy to Sandbox
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sf-ai-orchestrator/**'
+      - 'sfdx-project.json'
+
+  # Manual re-deploy trigger (e.g. hotfix, rollback)
+  workflow_dispatch:
+    inputs:
+      force-build-assets:
+        description: 'Force rebuild of static resources (ignore cache)'
+        required: false
+        type: boolean
+        default: false
+
+# Queue deploys — do not run two deploys in parallel on the same org
+concurrency:
+  group: deploy-sandbox
+  cancel-in-progress: false   # queue, don't cancel; we want every merge deployed
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+  SF_CLI_VERSION: 'latest'
+  SF_API_VERSION: '62.0'
+
+jobs:
+
+  # ─── Detect what changed ─────────────────────────────────────────────────────
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      has_sf_changes:  ${{ steps.filter.outputs.sf_changes }}
+      has_static_src:  ${{ steps.filter.outputs.static_src }}
+      has_apex:        ${{ steps.filter.outputs.apex }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need parent commit to diff
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            apex:
+              - 'sf-ai-orchestrator/force-app/**/*.cls'
+              - 'sf-ai-orchestrator/force-app/**/*.trigger'
+            static_src:
+              - 'sf-ai-orchestrator/static-resource-src/**'
+            sf_changes:
+              - 'sf-ai-orchestrator/force-app/**'
+              - 'sf-ai-orchestrator/static-resource-src/**'
+              - 'sfdx-project.json'
+
+  # ─── Build Webpack bundle ──────────────────────────────────────────────────
+  build-assets:
+    name: Build Static Resource
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.has_static_src == 'true' ||
+      github.event.inputs.force-build-assets == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build orchestrationEngine bundle
+        uses: ./.github/actions/build-static-resource
+        with:
+          working-directory: sf-ai-orchestrator/static-resource-src
+          output-path: sf-ai-orchestrator/force-app/main/default/staticresources/orchestrationEngine.resource
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Upload built static resource
+        uses: actions/upload-artifact@v4
+        with:
+          name: orchestration-engine-resource-${{ github.sha }}
+          path: sf-ai-orchestrator/force-app/main/default/staticresources/orchestrationEngine.resource
+          retention-days: 7   # keep for potential rollback reference
+
+  # ─── Deploy to sandbox ────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Sandbox
+    needs: [detect-changes, build-assets]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.has_sf_changes == 'true' &&
+      (needs.build-assets.result == 'success' || needs.build-assets.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: sandbox
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Salesforce CLI
+        uses: ./.github/actions/setup-salesforce
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          sf-cli-version: ${{ env.SF_CLI_VERSION }}
+
+      - name: Download built static resource
+        if: needs.build-assets.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: orchestration-engine-resource-${{ github.sha }}
+          path: sf-ai-orchestrator/force-app/main/default/staticresources/
+
+      - name: Authenticate to sandbox
+        run: |
+          printf "%s" "${{ secrets.SF_JWT_KEY }}" > server.key
+          sf org login jwt \
+            --client-id "${{ secrets.SF_CONSUMER_KEY }}" \
+            --jwt-key-file server.key \
+            --username "${{ secrets.SF_USERNAME }}" \
+            --instance-url "${{ secrets.SF_INSTANCE_URL }}" \
+            --alias sandbox-org \
+            --set-default
+          rm -f server.key
+
+      - name: Determine test level
+        id: test-level
+        run: |
+          if [ "${{ needs.detect-changes.outputs.has_apex }}" = "true" ]; then
+            echo "level=RunLocalTests" >> $GITHUB_OUTPUT
+          else
+            echo "level=NoTestRun" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to sandbox
+        id: deploy
+        run: |
+          sf project deploy start \
+            --source-dir sf-ai-orchestrator/force-app \
+            --target-org sandbox-org \
+            --test-level ${{ steps.test-level.outputs.level }} \
+            --api-version ${{ env.SF_API_VERSION }} \
+            --wait 30
+
+      - name: Write job summary
+        if: always()
+        run: |
+          OUTCOME="${{ steps.deploy.outcome }}"
+          {
+            echo "## Deploy to Sandbox"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Status** | $( [ "$OUTCOME" = "success" ] && echo "✅ Success" || echo "❌ Failed" ) |"
+            echo "| **Commit** | \`${{ github.sha }}\` |"
+            echo "| **Triggered by** | ${{ github.actor }} |"
+            echo "| **Test level** | ${{ steps.test-level.outputs.level }} |"
+            echo "| **API version** | ${{ env.SF_API_VERSION }} |"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deploy to sandbox failed for commit ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Triggered by: ${{ github.actor }}"
+          # Add Slack/Teams webhook call here if needed

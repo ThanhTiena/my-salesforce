@@ -14,8 +14,8 @@
 
 | Phase | Name | Status | Progress | Owner |
 |-------|------|--------|----------|-------|
-| Phase 1 | Foundation | 🔄 In Progress | 40% | — |
-| Phase 2 | Core Designer | ⏳ Not Started | 0% | — |
+| Phase 1 | Foundation | ✅ Done | 100% | — |
+| Phase 2 | Core Designer | 🔄 In Progress | 70% | — |
 | Phase 3 | Execution Engine | ⏳ Not Started | 0% | — |
 | Phase 4 | AI Integration | ⏳ Not Started | 0% | — |
 | Phase 5 | Advanced Features | ⏳ Not Started | 0% | — |
@@ -32,30 +32,32 @@
 
 | Task | Status | Income (What you need) | Outcome (What you produce) | Next Action |
 |------|--------|------------------------|---------------------------|-------------|
-| Create `AI_Workflow__c` object | 🔄 In Progress | Salesforce Setup or SFDX | Object + fields deployed | Create all 10 fields listed in `FIELDS_TO_CREATE.md` → Section "AI_Workflow__c" |
-| Create `AI_Step__c` object | ⏳ Not Started | `AI_Workflow__c` must exist first | Object + 14 fields deployed | Create after AI_Workflow__c is done. Master-Detail to AI_Workflow__c. |
-| Create `AI_Execution__c` object | ⏳ Not Started | `AI_Workflow__c` must exist | Object with AutoNumber name + 12 fields | Set Name Field = Auto Number format `EXEC-{0000000}` |
-| Create `AI_Step_Execution__c` object | ⏳ Not Started | `AI_Execution__c` + `AI_Step__c` must exist | Object with AutoNumber name + 16 fields | Set Name Field = Auto Number format `STEP-{0000000}`. Master-Detail to AI_Execution__c. |
-| Create `AI_Provider__mdt` CMDT | ⏳ Not Started | Salesforce Setup | CMDT with 14 fields | Custom Metadata Type — go to Setup → Custom Metadata Types → New |
-| Verify all `.field-meta.xml` files pass `sf deploy` | ⏳ Not Started | All objects/fields created | Zero deploy errors | Run `sf project deploy start --dry-run` |
+| Create `AI_Workflow__c` object | ✅ Done | Salesforce Setup or SFDX | Object + 10 fields deployed | — |
+| Create `AI_Step__c` object | ✅ Done | `AI_Workflow__c` must exist first | Object + 14 fields deployed | — |
+| Create `AI_Execution__c` object | ✅ Done | `AI_Workflow__c` must exist | Object with AutoNumber name + 12 fields | — |
+| Create `AI_Step_Execution__c` object | ✅ Done | `AI_Execution__c` + `AI_Step__c` must exist | Object with AutoNumber name + 16 fields | — |
+| Create `AI_Provider__mdt` CMDT | ✅ Done | Salesforce Setup | CMDT with 14 fields | — |
+| Verify all `.field-meta.xml` files pass `sf deploy` | ⏳ Not Started | All objects/fields created | Zero deploy errors | Run `sf project deploy start --dry-run` from `sf-ai-orchestrator/` |
 
 ### 1.2 Named Credentials
 
 | Task | Status | Income | Outcome | Next Action |
 |------|--------|--------|---------|-------------|
-| Create Named Credential: `OpenAI_API` | ⏳ Not Started | OpenAI API key | NC ready for callout | Setup → Named Credentials → New. Auth Protocol = Custom Header, Header Name = `Authorization`, Value = `Bearer sk-...` |
-| Create Named Credential: `Anthropic_API` | ⏳ Not Started | Anthropic API key | NC ready for callout | Header Name = `x-api-key`, add second header `anthropic-version: 2023-06-01` |
-| Create Named Credential: `Google_AI_API` | ⏳ Not Started | Google AI API key | NC ready for callout | Header Name = `x-goog-api-key` |
+| Create Named Credential: `AI_OpenAI` | ✅ Done | OpenAI API key | NC metadata file deployed | `namedCredentials/AI_OpenAI.namedCredential-meta.xml` |
+| Create Named Credential: `AI_Anthropic` | ✅ Done | Anthropic API key | NC metadata file deployed | `namedCredentials/AI_Anthropic.namedCredential-meta.xml` |
+| Create Named Credential: `AI_Google_Gemini` | ✅ Done | Google AI API key | NC metadata file deployed | `namedCredentials/AI_Google_Gemini.namedCredential-meta.xml` |
+| Create Named Credential: `AI_Cohere` | ✅ Done | Cohere API key | NC metadata file deployed | — |
+| Create Named Credential: `AI_Mistral` | ✅ Done | Mistral API key | NC metadata file deployed | — |
 | Add AI providers to Remote Site Settings | ⏳ Not Started | Endpoint URLs from spec §6 | Callouts allowed | Setup → Remote Site Settings → New for each API base URL |
 
 ### 1.3 Static Resource (Drawflow Bundle)
 
 | Task | Status | Income | Outcome | Next Action |
 |------|--------|--------|---------|-------------|
-| `npm install drawflow` | ⏳ Not Started | Node.js + npm installed | `node_modules/drawflow` present | Run `npm install drawflow` in project root |
-| Configure Webpack (`webpack.config.js`) | ⏳ Not Started | Drawflow npm package | UMD bundle: `orchestrationEngine.js` + `.css` | Output format: UMD, library name: `OrchestrationEngine`, expose `window.OrchestrationEngine` |
-| Build bundle: `npm run build` | ⏳ Not Started | `webpack.config.js` ready | `dist/orchestrationEngine.js` + `dist/orchestrationEngine.css` |  Run `npm run build` — verify file sizes are < 5MB |
-| Zip bundle and upload as Static Resource | ⏳ Not Started | Built bundle files | `orchestrationEngine.resource` in Salesforce | Zip `dist/` folder → upload to Setup → Static Resources → Name: `orchestrationEngine` |
+| `npm install drawflow` | ⏳ Not Started | Node.js + npm installed | `node_modules/drawflow` present | Run `npm install drawflow` in `sf-ai-orchestrator/` |
+| Configure Webpack (`webpack.config.js`) | ⏳ Not Started | Drawflow npm package | UMD bundle: `orchestrationEngine.js` + `.css` | Output format: UMD, library name: `Drawflow`, expose `window.Drawflow`. Entry: `node_modules/drawflow/dist/drawflow.js` |
+| Build bundle: `npm run build` | ⏳ Not Started | `webpack.config.js` ready | `dist/orchestrationEngine.js` + `dist/orchestrationEngine.css` | Run `npm run build` — verify file sizes are < 5MB |
+| Zip and upload as Static Resource `orchestrationEngine` | ⏳ Not Started | Built bundle files | Static Resource deployed | Zip `dist/` contents → upload in Setup → Static Resources. Name must match `@salesforce/resourceUrl/orchestrationEngine` |
 
 **Phase 1 Checkpoint:** ✅ All objects deployed + ✅ NCs created + ✅ Static resource uploaded = Phase 2 can begin.
 
@@ -68,15 +70,13 @@
 
 | Task | Status | Income | Outcome | Next Action |
 |------|--------|--------|---------|-------------|
-| `orchestrationDesigner` LWC — canvas container | ⏳ Not Started | Phase 1 done | LWC renders Drawflow canvas | Use `lwc:dom="manual"` div. Load JS+CSS with `loadScript()`/`loadStyle()` from static resource |
-| Node palette sidebar | ⏳ Not Started | Canvas LWC working | Draggable node types (Start, End, AI Inference, etc.) | Each palette item maps to a node type from spec §3.2 |
-| Properties panel | ⏳ Not Started | Node palette working | Contextual form when node is selected | On Drawflow `nodeSelected` event → render matching config form |
-| AI Inference step config form | ⏳ Not Started | Properties panel | Provider selector + model + prompt fields | Picklist from `AI_Provider__mdt` records |
-| Save workflow to `AI_Workflow__c` | ⏳ Not Started | Designer working | `Canvas_JSON__c` + `Version__c` saved | `WorkflowService` Apex class with FLS-safe DML |
-| Load existing workflow from object | ⏳ Not Started | Save working | Canvas renders from saved JSON | `drawflow.import(JSON.parse(canvasJson))` |
-| View-only mode | ⏳ Not Started | Load working | Read-only canvas for non-designers | Check `Manage_Orchestration` Custom Permission |
-| Workflow validation on Save/Activate | ⏳ Not Started | Save working | Error list: orphan nodes, missing configs | Check every node has required fields before setting `Is_Active__c = true` |
-| Version auto-increment on save | ⏳ Not Started | Save working | `Version__c` increments | Apex trigger or service layer before update |
+| `WorkflowService` Apex controller | ✅ Done | Phase 1 done | `@AuraEnabled` methods: getWorkflow, getWorkflows, createWorkflow, saveWorkflow, saveSteps, setWorkflowActive, deleteWorkflow, runWorkflow, getActiveProviders | — |
+| `aiWorkflowDesigner` LWC — canvas + Drawflow | ✅ Done | Static Resource deployed | LWC renders Drawflow canvas, handles node selection events, exposes `addNode()` and `updateNodeData()` @api | Located at `lwc/aiWorkflowDesigner/` |
+| `aiNodePalette` LWC — sidebar | ✅ Done | — | All 11 node types as draggable palette items with search, category colour coding, drag+click events | Located at `lwc/aiNodePalette/` |
+| `aiPropertiesPanel` LWC — contextual config form | ✅ Done | — | Per-type forms: AI Inference, Decision, HTTP Callout, Apex Action, Flow Launch, Wait, Notification, Sub-Workflow | Located at `lwc/aiPropertiesPanel/` |
+| `aiWorkflowBuilder` LWC — parent shell | ✅ Done | All 3 children built | Three-column layout. Wires palette → canvas → properties. New Workflow modal. Drag-and-drop + click-to-add. | Located at `lwc/aiWorkflowBuilder/` — exposed to AppPage + Tab |
+| Webpack bundle + Static Resource upload | ⏳ Not Started | npm/webpack installed | `orchestrationEngine` Static Resource deployed | See Phase 1 Static Resource tasks above — must be done before designer renders |
+| Deploy Phase 2 to scratch org + smoke test | ⏳ Not Started | Static resource + all above | Designer loads in App Page, nodes can be added, saved, reloaded | Run `sf project deploy start` then open AI Workflow Builder tab |
 
 **Phase 2 Checkpoint:** ✅ Can draw a workflow, save it, reload it, activate it = Phase 3 can begin.
 

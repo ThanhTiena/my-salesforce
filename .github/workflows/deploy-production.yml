@@ -1,0 +1,137 @@
+# ==============================================================================
+# Workflow: Deploy to Production
+# ==============================================================================
+# Manual-only trigger. Requires a reviewer to approve via the "production"
+# environment gate before the deploy job runs.
+#
+# This workflow never triggers automatically — it is always a deliberate action.
+#
+# Jobs:
+#   build-assets  → Webpack bundle (always rebuilds for production)
+#   deploy        → sf project deploy against production org
+# ==============================================================================
+
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA to deploy (leave blank for HEAD of main)'
+        required: false
+        type: string
+      run-all-tests:
+        description: 'Run full test suite (RunAllTestsInOrg)'
+        required: false
+        type: boolean
+        default: true
+
+# Only one production deploy at a time — never cancel in progress
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+  SF_CLI_VERSION: 'latest'
+  SF_API_VERSION: '62.0'
+
+jobs:
+
+  build-assets:
+    name: Build Static Resource
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.sha || github.sha }}
+
+      - name: Build orchestrationEngine bundle
+        uses: ./.github/actions/build-static-resource
+        with:
+          working-directory: sf-ai-orchestrator/static-resource-src
+          output-path: sf-ai-orchestrator/force-app/main/default/staticresources/orchestrationEngine.resource
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Upload built static resource
+        uses: actions/upload-artifact@v4
+        with:
+          name: orchestration-engine-resource-prod-${{ github.sha }}
+          path: sf-ai-orchestrator/force-app/main/default/staticresources/orchestrationEngine.resource
+          retention-days: 30
+
+  deploy:
+    name: Deploy to Production
+    needs: build-assets
+    runs-on: ubuntu-latest
+    # "production" environment requires manual approval via GitHub environment protection rules
+    # Set this up: Settings > Environments > production > Required reviewers
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.sha || github.sha }}
+
+      - name: Setup Salesforce CLI
+        uses: ./.github/actions/setup-salesforce
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          sf-cli-version: ${{ env.SF_CLI_VERSION }}
+
+      - name: Download built static resource
+        uses: actions/download-artifact@v4
+        with:
+          name: orchestration-engine-resource-prod-${{ github.sha }}
+          path: sf-ai-orchestrator/force-app/main/default/staticresources/
+
+      - name: Authenticate to production
+        run: |
+          printf "%s" "${{ secrets.SF_JWT_KEY }}" > server.key
+          sf org login jwt \
+            --client-id "${{ secrets.SF_CONSUMER_KEY }}" \
+            --jwt-key-file server.key \
+            --username "${{ secrets.SF_USERNAME }}" \
+            --instance-url "${{ secrets.SF_INSTANCE_URL }}" \
+            --alias production-org \
+            --set-default
+          rm -f server.key
+
+      - name: Determine test level
+        id: test-level
+        run: |
+          if [ "${{ github.event.inputs.run-all-tests }}" = "true" ]; then
+            echo "level=RunAllTestsInOrg" >> $GITHUB_OUTPUT
+            echo "Running full test suite for production deploy"
+          else
+            echo "level=RunLocalTests" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to production
+        id: deploy
+        run: |
+          sf project deploy start \
+            --source-dir sf-ai-orchestrator/force-app \
+            --target-org production-org \
+            --test-level ${{ steps.test-level.outputs.level }} \
+            --api-version ${{ env.SF_API_VERSION }} \
+            --wait 60
+
+      - name: Write job summary
+        if: always()
+        run: |
+          OUTCOME="${{ steps.deploy.outcome }}"
+          TARGET_SHA="${{ github.event.inputs.sha || github.sha }}"
+          {
+            echo "## Production Deploy"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Status** | $( [ "$OUTCOME" = "success" ] && echo "✅ Success" || echo "❌ Failed" ) |"
+            echo "| **Commit** | \`${TARGET_SHA}\` |"
+            echo "| **Approved by** | ${{ github.actor }} |"
+            echo "| **Test level** | ${{ steps.test-level.outputs.level }} |"
+            echo "| **API version** | ${{ env.SF_API_VERSION }} |"
+          } >> $GITHUB_STEP_SUMMARY

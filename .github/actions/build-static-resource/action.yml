@@ -1,0 +1,74 @@
+name: 'Build Static Resource'
+description: 'Runs Webpack to bundle the orchestration engine and packages it as a Salesforce Static Resource'
+
+inputs:
+  working-directory:
+    description: 'Directory containing package.json with build scripts'
+    required: false
+    default: 'sf-ai-orchestrator/static-resource-src'
+  output-path:
+    description: 'Where to write the .resource file (relative to repo root)'
+    required: false
+    default: 'sf-ai-orchestrator/force-app/main/default/staticresources/orchestrationEngine.resource'
+  node-version:
+    description: 'Node.js version'
+    required: false
+    default: '20'
+
+outputs:
+  cache-hit:
+    description: 'Whether the build was served from cache'
+    value: ${{ steps.cache-build.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+        cache-dependency-path: '${{ inputs.working-directory }}/package-lock.json'
+
+    # Cache the Webpack output keyed on source file hashes
+    # Any change to src/ or package-lock.json busts the cache
+    - name: Cache Webpack build
+      id: cache-build
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.working-directory }}/dist
+        key: webpack-build-${{ runner.os }}-${{ hashFiles(format('{0}/src/**', inputs.working-directory), format('{0}/webpack.config.js', inputs.working-directory), format('{0}/package-lock.json', inputs.working-directory)) }}
+        restore-keys: |
+          webpack-build-${{ runner.os }}-
+
+    - name: Install dependencies
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm ci --prefer-offline
+
+    - name: Build bundle
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm run build
+
+    - name: Package as Static Resource
+      shell: bash
+      run: |
+        DIST_DIR="${{ inputs.working-directory }}/dist"
+        OUT_FILE="${{ inputs.output-path }}"
+
+        if [ ! -d "$DIST_DIR" ]; then
+          echo "Build output not found at $DIST_DIR"
+          exit 1
+        fi
+
+        # Create the .resource zip (Salesforce expects a zip for multi-file static resources)
+        mkdir -p "$(dirname "$OUT_FILE")"
+        cd "$DIST_DIR"
+        zip -r "../../../../../../${OUT_FILE}" . -x "*.map"
+        cd -
+
+        echo "Static resource packaged: ${OUT_FILE} ($(du -sh "${OUT_FILE}" | cut -f1))"

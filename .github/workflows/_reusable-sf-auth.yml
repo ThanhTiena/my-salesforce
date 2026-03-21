@@ -1,0 +1,65 @@
+# ==============================================================================
+# Reusable Workflow: Salesforce JWT Authentication
+# ==============================================================================
+# Called by validate-pr.yml and deploy-sandbox.yml to avoid duplicating
+# auth logic. Writes server.key, authenticates, removes key.
+#
+# Usage:
+#   jobs:
+#     auth:
+#       uses: ./.github/workflows/_reusable-sf-auth.yml
+#       with:
+#         org-alias: my-org
+#       secrets:
+#         SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+#         SF_CONSUMER_KEY: ${{ secrets.SF_CONSUMER_KEY }}
+#         SF_USERNAME: ${{ secrets.SF_USERNAME }}
+#         SF_INSTANCE_URL: ${{ secrets.SF_INSTANCE_URL }}
+# ==============================================================================
+on:
+  workflow_call:
+    inputs:
+      org-alias:
+        description: 'Alias to assign to the authenticated org'
+        required: false
+        type: string
+        default: 'target-org'
+      set-default:
+        description: 'Set this org as the default org'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      SF_JWT_KEY:
+        required: true
+      SF_CONSUMER_KEY:
+        required: true
+      SF_USERNAME:
+        required: true
+      SF_INSTANCE_URL:
+        required: true
+
+jobs:
+  authenticate:
+    name: Authenticate to Salesforce
+    runs-on: ubuntu-latest
+    steps:
+      - name: JWT Authentication
+        run: |
+          printf "%s" "${{ secrets.SF_JWT_KEY }}" > server.key
+
+          if [ ! -s server.key ]; then
+            echo "SF_JWT_KEY secret is empty or not set"
+            exit 1
+          fi
+
+          sf org login jwt \
+            --client-id "${{ secrets.SF_CONSUMER_KEY }}" \
+            --jwt-key-file server.key \
+            --username "${{ secrets.SF_USERNAME }}" \
+            --instance-url "${{ secrets.SF_INSTANCE_URL }}" \
+            --alias "${{ inputs.org-alias }}" \
+            ${{ inputs.set-default && '--set-default' || '' }}
+
+          rm -f server.key
+          echo "Authenticated as ${{ secrets.SF_USERNAME }} (alias: ${{ inputs.org-alias }})"

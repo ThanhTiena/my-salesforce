@@ -1,0 +1,237 @@
+# ==============================================================================
+# Workflow: Validate Pull Request
+# ==============================================================================
+# Runs on every PR targeting main. Gates merge — PR cannot be merged if
+# validation fails. Does NOT deploy.
+#
+# Jobs:
+#   detect-changes  → what changed?
+#   build-assets    → Webpack bundle (if LWC or static-resource-src changed)
+#   validate        → sf project deploy --dry-run against sandbox
+#   report          → post summary comment to PR
+# ==============================================================================
+
+name: Validate PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'sf-ai-orchestrator/**'
+      - 'sfdx-project.json'
+
+# Cancel stale runs for the same PR — only the latest commit matters
+concurrency:
+  group: validate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  NODE_VERSION: '20'
+  SF_CLI_VERSION: 'latest'
+  SF_API_VERSION: '62.0'
+
+jobs:
+
+  # ─── Detect what changed ─────────────────────────────────────────────────────
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      has_apex:           ${{ steps.filter.outputs.apex }}
+      has_lwc:            ${{ steps.filter.outputs.lwc }}
+      has_metadata:       ${{ steps.filter.outputs.metadata }}
+      has_static_src:     ${{ steps.filter.outputs.static_src }}
+      has_sf_changes:     ${{ steps.filter.outputs.sf_changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            apex:
+              - 'sf-ai-orchestrator/force-app/**/*.cls'
+              - 'sf-ai-orchestrator/force-app/**/*.trigger'
+            lwc:
+              - 'sf-ai-orchestrator/force-app/**/lwc/**'
+            metadata:
+              - 'sf-ai-orchestrator/force-app/**/*.xml'
+            static_src:
+              - 'sf-ai-orchestrator/static-resource-src/**'
+            sf_changes:
+              - 'sf-ai-orchestrator/force-app/**'
+              - 'sf-ai-orchestrator/static-resource-src/**'
+              - 'sfdx-project.json'
+
+      - name: Post change summary to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const apex     = '${{ steps.filter.outputs.apex }}'     === 'true';
+            const lwc      = '${{ steps.filter.outputs.lwc }}'      === 'true';
+            const meta     = '${{ steps.filter.outputs.metadata }}' === 'true';
+            const staticSrc= '${{ steps.filter.outputs.static_src }}'=== 'true';
+
+            const row = (label, val) => `| ${val ? '✅' : '⬜'} | ${label} |`;
+            const body = [
+              '## Changes in this PR',
+              '| | Component |',
+              '|---|---|',
+              row('Apex Classes / Triggers', apex),
+              row('Lightning Web Components', lwc),
+              row('Metadata (Objects, Fields, etc.)', meta),
+              row('Static Resource source (Webpack)', staticSrc),
+              '',
+              apex ? '> **Tests will run** — Apex changes detected.' : '> Tests skipped — no Apex changes.',
+              '',
+              `_Validation job pending — [view run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})_`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+  # ─── Build Webpack bundle ──────────────────────────────────────────────────
+  build-assets:
+    name: Build Static Resource
+    needs: detect-changes
+    # Build if static-resource-src changed OR if LWC changed (imports the bundle)
+    if: needs.detect-changes.outputs.has_static_src == 'true' || needs.detect-changes.outputs.has_lwc == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build orchestrationEngine bundle
+        uses: ./.github/actions/build-static-resource
+        with:
+          working-directory: sf-ai-orchestrator/static-resource-src
+          output-path: sf-ai-orchestrator/force-app/main/default/staticresources/orchestrationEngine.resource
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Make the built .resource file available to the validate job
+      - name: Upload built static resource
+        uses: actions/upload-artifact@v4
+        with:
+          name: orchestration-engine-resource
+          path: sf-ai-orchestrator/force-app/main/default/staticresources/orchestrationEngine.resource
+          retention-days: 1
+
+  # ─── Validate against org ─────────────────────────────────────────────────
+  validate:
+    name: Validate Deployment (dry-run)
+    needs: [detect-changes, build-assets]
+    # Run even if build-assets was skipped (only skipped when no asset changes)
+    if: |
+      always() &&
+      needs.detect-changes.outputs.has_sf_changes == 'true' &&
+      (needs.build-assets.result == 'success' || needs.build-assets.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: sandbox   # scopes SF_SANDBOX_* secrets to this env
+    outputs:
+      outcome: ${{ steps.validate.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Salesforce CLI
+        uses: ./.github/actions/setup-salesforce
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          sf-cli-version: ${{ env.SF_CLI_VERSION }}
+
+      # Download built asset if it was produced by build-assets job
+      - name: Download built static resource
+        if: needs.build-assets.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: orchestration-engine-resource
+          path: sf-ai-orchestrator/force-app/main/default/staticresources/
+
+      - name: Authenticate to sandbox
+        run: |
+          printf "%s" "${{ secrets.SF_JWT_KEY }}" > server.key
+          sf org login jwt \
+            --client-id "${{ secrets.SF_CONSUMER_KEY }}" \
+            --jwt-key-file server.key \
+            --username "${{ secrets.SF_USERNAME }}" \
+            --instance-url "${{ secrets.SF_INSTANCE_URL }}" \
+            --alias validation-org \
+            --set-default
+          rm -f server.key
+
+      - name: Determine test level
+        id: test-level
+        run: |
+          if [ "${{ needs.detect-changes.outputs.has_apex }}" = "true" ]; then
+            echo "level=RunLocalTests" >> $GITHUB_OUTPUT
+            echo "Test level: RunLocalTests (Apex changed)"
+          else
+            echo "level=NoTestRun" >> $GITHUB_OUTPUT
+            echo "Test level: NoTestRun (no Apex changes)"
+          fi
+
+      - name: Validate (dry-run)
+        id: validate
+        run: |
+          sf project deploy start \
+            --source-dir sf-ai-orchestrator/force-app \
+            --target-org validation-org \
+            --test-level ${{ steps.test-level.outputs.level }} \
+            --api-version ${{ env.SF_API_VERSION }} \
+            --dry-run \
+            --wait 30
+
+  # ─── Report results to PR ──────────────────────────────────────────────────
+  report:
+    name: Report Results
+    needs: [detect-changes, build-assets, validate]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const buildResult    = '${{ needs.build-assets.result }}';
+            const validateResult = '${{ needs.validate.result }}';
+            const noChanges      = '${{ needs.detect-changes.outputs.has_sf_changes }}' !== 'true';
+
+            let status, detail;
+            if (noChanges) {
+              status = '⬜ No Salesforce changes detected — validation skipped.';
+              detail = '';
+            } else if (validateResult === 'success') {
+              status = '✅ **Validation passed** — safe to merge.';
+              detail = 'Deployment dry-run completed without errors.';
+            } else if (validateResult === 'failure') {
+              status = '❌ **Validation failed** — merge blocked.';
+              detail = 'Check the Actions logs for error details.';
+            } else if (buildResult === 'failure') {
+              status = '❌ **Asset build failed** — validation skipped.';
+              detail = 'Webpack build error. Check the build-assets job logs.';
+            } else {
+              status = '⚠️ Validation skipped or cancelled.';
+              detail = '';
+            }
+
+            const body = [
+              '## Validation Result',
+              '',
+              status,
+              detail,
+              '',
+              `[View full run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
