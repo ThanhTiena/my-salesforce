@@ -95,7 +95,7 @@ export default class AiExecutionMonitor extends LightningElement {
         const execId = event.currentTarget.dataset.id;
         this.showStepModal = true;
         try {
-            this.stepExecutions = await getStepExecutions({ executionId: execId });
+            this.stepExecutions = await getStepExecutions({ executionId: String(execId) });
         } catch (e) {
             console.error('Failed to load steps:', e);
         }

@@ -2,7 +2,14 @@
  * AIExecutionMonitorController
  *
  * Apex controller for the aiExecutionMonitor LWC.
- * Provides aggregated execution metrics and recent execution lists.
+ *
+ * Phase 3 (read switch): all four @AuraEnabled methods now read from MongoDB
+ * via MongoDBLogService. When MongoDB is inactive (Is_Active__c = false or
+ * no CMDT record), the service returns empty results and this controller
+ * falls back to Salesforce SOQL seamlessly.
+ *
+ * cacheable=true is NOT used on methods that call MongoDB — callouts are
+ * incompatible with the Salesforce Apex caching mechanism.
  *
  * Security: runs with sharing, CRUD checked via AISecurityUtil.
  */
@@ -11,17 +18,17 @@ public with sharing class AIExecutionMonitorController {
     // ─── DTOs ────────────────────────────────────────────────────────────────
 
     public class ExecutionSummary {
-        @AuraEnabled public Id     id;
-        @AuraEnabled public String workflowName;
-        @AuraEnabled public String status;
-        @AuraEnabled public String initiatedBy;
+        @AuraEnabled public String   id;
+        @AuraEnabled public String   workflowName;
+        @AuraEnabled public String   status;
+        @AuraEnabled public String   initiatedBy;
         @AuraEnabled public Datetime startedAt;
         @AuraEnabled public Datetime completedAt;
-        @AuraEnabled public Decimal durationSeconds;
-        @AuraEnabled public Integer retryCount;
-        @AuraEnabled public Integer totalTokens;
-        @AuraEnabled public String  errorMessage;
-        @AuraEnabled public String  triggerRecordId;
+        @AuraEnabled public Decimal  durationSeconds;
+        @AuraEnabled public Integer  retryCount;
+        @AuraEnabled public Integer  totalTokens;
+        @AuraEnabled public String   errorMessage;
+        @AuraEnabled public String   triggerRecordId;
     }
 
     public class DashboardMetrics {
@@ -40,17 +47,46 @@ public with sharing class AIExecutionMonitorController {
         @AuraEnabled public Integer executionCount;
     }
 
+    public class StepExecutionSummary {
+        @AuraEnabled public String  id;
+        @AuraEnabled public String  stepName;
+        @AuraEnabled public String  stepType;
+        @AuraEnabled public String  status;
+        @AuraEnabled public String  providerUsed;
+        @AuraEnabled public String  modelUsed;
+        @AuraEnabled public Integer tokensUsed;
+        @AuraEnabled public Integer durationMs;
+        @AuraEnabled public String  errorMessage;
+        @AuraEnabled public String  parsedOutput;
+    }
+
     // ─── Public API ──────────────────────────────────────────────────────────
 
     /**
      * Returns high-level dashboard metrics across all workflows.
+     * Reads from MongoDB when active; falls back to Salesforce SOQL otherwise.
      * @param daysBack  Number of days to look back (default 7)
      */
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled(cacheable=false)
     public static DashboardMetrics getDashboardMetrics(Integer daysBack) {
-        AISecurityUtil.assertReadable(AI_Execution__c.SObjectType);
-
         Integer days = (daysBack != null && daysBack > 0) ? daysBack : 7;
+
+        // ── MongoDB read ──────────────────────────────────────────────────────
+        MongoDBLogService.DashboardResult mongoResult = MongoDBLogService.getDashboardMetrics(days);
+        if (mongoResult.totalExecutions > 0 || isMongoActive()) {
+            DashboardMetrics m = new DashboardMetrics();
+            m.totalExecutions    = mongoResult.totalExecutions;
+            m.successCount       = mongoResult.successCount;
+            m.failedCount        = mongoResult.failedCount;
+            m.runningCount       = mongoResult.runningCount;
+            m.avgDurationSeconds = mongoResult.avgDurationSeconds;
+            m.totalTokensUsed    = mongoResult.totalTokensUsed;
+            m.successRate        = mongoResult.successRate;
+            return m;
+        }
+
+        // ── Salesforce fallback ───────────────────────────────────────────────
+        AISecurityUtil.assertReadable(AI_Execution__c.SObjectType);
         Datetime since = Datetime.now().addDays(-days);
 
         List<AggregateResult> results = [
@@ -70,7 +106,7 @@ public with sharing class AIExecutionMonitorController {
         m.totalTokensUsed    = 0;
         m.avgDurationSeconds = 0;
 
-        Decimal weightedDur  = 0;
+        Decimal weightedDur = 0;
         for (AggregateResult r : results) {
             Integer cnt      = ((Decimal) r.get('cnt')).intValue();
             String  status   = (String)  r.get('status');
@@ -78,11 +114,11 @@ public with sharing class AIExecutionMonitorController {
             Decimal totalTok = (Decimal) r.get('totalTok');
 
             m.totalExecutions += cnt;
-            if (totalTok  != null) m.totalTokensUsed    += totalTok.intValue();
-            if (avgDur    != null) weightedDur           += avgDur * cnt;
+            if (totalTok != null) m.totalTokensUsed    += totalTok.intValue();
+            if (avgDur   != null) weightedDur           += avgDur * cnt;
 
-            if (status == 'COMPLETED') m.successCount  += cnt;
-            else if (status == 'FAILED') m.failedCount += cnt;
+            if (status == 'COMPLETED')                          m.successCount += cnt;
+            else if (status == 'FAILED')                        m.failedCount  += cnt;
             else if (status == 'RUNNING' || status == 'RETRYING') m.runningCount += cnt;
         }
 
@@ -90,19 +126,41 @@ public with sharing class AIExecutionMonitorController {
             m.avgDurationSeconds = weightedDur / m.totalExecutions;
             m.successRate        = (Decimal) m.successCount / m.totalExecutions * 100;
         }
-
         return m;
     }
 
     /**
-     * Returns the most recent N executions with workflow name.
+     * Returns the most recent N executions.
+     * Reads from MongoDB when active; falls back to Salesforce SOQL otherwise.
      */
     @AuraEnabled(cacheable=false)
     public static List<ExecutionSummary> getRecentExecutions(Integer limitRows) {
-        AISecurityUtil.assertReadable(AI_Execution__c.SObjectType);
-
         Integer lim = (limitRows != null && limitRows > 0) ? Math.min(limitRows, 200) : 20;
 
+        // ── MongoDB read ──────────────────────────────────────────────────────
+        if (isMongoActive()) {
+            List<MongoDBLogService.ExecutionSummary> mongoRows = MongoDBLogService.getRecentExecutions(lim);
+            List<ExecutionSummary> out = new List<ExecutionSummary>();
+            for (MongoDBLogService.ExecutionSummary r : mongoRows) {
+                ExecutionSummary s  = new ExecutionSummary();
+                s.id               = r.sfExecutionId;
+                s.workflowName     = r.workflowName;
+                s.status           = r.status;
+                s.initiatedBy      = r.initiatedBy;
+                s.startedAt        = r.startedAtEpochMs != null ? Datetime.newInstance(r.startedAtEpochMs) : null;
+                s.completedAt      = r.completedAtEpochMs != null ? Datetime.newInstance(r.completedAtEpochMs) : null;
+                s.durationSeconds  = r.durationSeconds;
+                s.retryCount       = r.retryCount;
+                s.totalTokens      = r.totalTokensUsed;
+                s.errorMessage     = r.errorMessage;
+                s.triggerRecordId  = r.triggerRecordId;
+                out.add(s);
+            }
+            return out;
+        }
+
+        // ── Salesforce fallback ───────────────────────────────────────────────
+        AISecurityUtil.assertReadable(AI_Execution__c.SObjectType);
         List<AI_Execution__c> recs = [
             SELECT Id, AI_Workflow__r.Name, Status__c, Initiated_By__c,
                    Started_At__c, Completed_At__c, Duration_Seconds__c,
@@ -113,7 +171,7 @@ public with sharing class AIExecutionMonitorController {
             LIMIT :lim
         ];
 
-        List<ExecutionSummary> summaries = new List<ExecutionSummary>();
+        List<ExecutionSummary> out = new List<ExecutionSummary>();
         for (AI_Execution__c r : recs) {
             ExecutionSummary s  = new ExecutionSummary();
             s.id               = r.Id;
@@ -127,19 +185,35 @@ public with sharing class AIExecutionMonitorController {
             s.totalTokens      = r.Total_Tokens_Used__c != null ? r.Total_Tokens_Used__c.intValue() : 0;
             s.errorMessage     = r.Error_Message__c;
             s.triggerRecordId  = r.Trigger_Record_Id__c;
-            summaries.add(s);
+            out.add(s);
         }
-        return summaries;
+        return out;
     }
 
     /**
-     * Returns token usage aggregated by provider for the last N days.
+     * Returns token usage aggregated by provider.
+     * Reads from MongoDB when active; falls back to Salesforce SOQL otherwise.
      */
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled(cacheable=false)
     public static List<TokenUsageByProvider> getTokenUsageByProvider(Integer daysBack) {
-        AISecurityUtil.assertReadable(AI_Step_Execution__c.SObjectType);
+        Integer days = (daysBack != null && daysBack > 0) ? daysBack : 30;
 
-        Integer days  = (daysBack != null && daysBack > 0) ? daysBack : 30;
+        // ── MongoDB read ──────────────────────────────────────────────────────
+        if (isMongoActive()) {
+            List<MongoDBLogService.TokenUsageSummary> mongoRows = MongoDBLogService.getTokenUsageByProvider(days);
+            List<TokenUsageByProvider> out = new List<TokenUsageByProvider>();
+            for (MongoDBLogService.TokenUsageSummary r : mongoRows) {
+                TokenUsageByProvider t = new TokenUsageByProvider();
+                t.providerName   = r.providerName;
+                t.totalTokens    = r.totalTokens;
+                t.executionCount = r.executionCount;
+                out.add(t);
+            }
+            return out;
+        }
+
+        // ── Salesforce fallback ───────────────────────────────────────────────
+        AISecurityUtil.assertReadable(AI_Step_Execution__c.SObjectType);
         Datetime since = Datetime.now().addDays(-days);
 
         List<AggregateResult> results = [
@@ -153,27 +227,105 @@ public with sharing class AIExecutionMonitorController {
         List<TokenUsageByProvider> out = new List<TokenUsageByProvider>();
         for (AggregateResult r : results) {
             TokenUsageByProvider t = new TokenUsageByProvider();
-            t.providerName    = (String)  r.get('provider');
-            t.totalTokens     = r.get('totalTok') != null ? ((Decimal) r.get('totalTok')).intValue() : 0;
-            t.executionCount  = ((Decimal) r.get('cnt')).intValue();
+            t.providerName   = (String)  r.get('provider');
+            t.totalTokens    = r.get('totalTok') != null ? ((Decimal) r.get('totalTok')).intValue() : 0;
+            t.executionCount = ((Decimal) r.get('cnt')).intValue();
             out.add(t);
         }
         return out;
     }
 
     /**
-     * Returns step-level execution detail for a given AI_Execution__c.
+     * Returns step-level execution detail for a given execution.
+     * executionId may be a Salesforce Id or a MongoDB execution ID string.
+     * Reads from MongoDB when active; falls back to Salesforce SOQL otherwise.
      */
     @AuraEnabled(cacheable=false)
-    public static List<AI_Step_Execution__c> getStepExecutions(Id executionId) {
+    public static List<StepExecutionSummary> getStepExecutions(String executionId) {
+        // ── MongoDB read ──────────────────────────────────────────────────────
+        if (isMongoActive()) {
+            // If executionId looks like a Salesforce Id, resolve to Mongo ID first
+            String mongoId = resolveMongoId(executionId);
+            List<MongoDBLogService.StepSummary> steps = MongoDBLogService.getStepExecutions(mongoId);
+            List<StepExecutionSummary> out = new List<StepExecutionSummary>();
+            for (MongoDBLogService.StepSummary s : steps) {
+                StepExecutionSummary ss = new StepExecutionSummary();
+                ss.id           = s.id;
+                ss.stepName     = s.stepName;
+                ss.stepType     = s.stepType;
+                ss.status       = s.status;
+                ss.providerUsed = s.providerUsed;
+                ss.modelUsed    = s.modelUsed;
+                ss.tokensUsed   = s.tokensUsed;
+                ss.durationMs   = s.durationMs;
+                ss.errorMessage = s.errorMessage;
+                ss.parsedOutput = s.parsedOutput;
+                out.add(ss);
+            }
+            return out;
+        }
+
+        // ── Salesforce fallback ───────────────────────────────────────────────
         AISecurityUtil.assertReadable(AI_Step_Execution__c.SObjectType);
-        return [
+        Id sfExecId = (Id) executionId;
+        List<AI_Step_Execution__c> recs = [
             SELECT Id, AI_Step__r.Name, AI_Step__r.Step_Type__c, Status__c,
                    Provider_Used__c, Model_Used__c, Tokens_Used__c,
                    Duration_Ms__c, Error_Message__c, Parsed_Output__c
             FROM AI_Step_Execution__c
-            WHERE AI_Execution__c = :executionId
+            WHERE AI_Execution__c = :sfExecId
             ORDER BY CreatedDate ASC
         ];
+
+        List<StepExecutionSummary> out = new List<StepExecutionSummary>();
+        for (AI_Step_Execution__c r : recs) {
+            StepExecutionSummary ss = new StepExecutionSummary();
+            ss.id           = r.Id;
+            ss.stepName     = r.AI_Step__r?.Name;
+            ss.stepType     = r.AI_Step__r?.Step_Type__c;
+            ss.status       = r.Status__c;
+            ss.providerUsed = r.Provider_Used__c;
+            ss.modelUsed    = r.Model_Used__c;
+            ss.tokensUsed   = r.Tokens_Used__c != null ? r.Tokens_Used__c.intValue() : 0;
+            ss.durationMs   = r.Duration_Ms__c != null ? r.Duration_Ms__c.intValue() : 0;
+            ss.errorMessage = r.Error_Message__c;
+            ss.parsedOutput = r.Parsed_Output__c;
+            out.add(ss);
+        }
+        return out;
+    }
+
+    // ─── Private Helpers ─────────────────────────────────────────────────────
+
+    private static Boolean isMongoActive() {
+        List<AI_MongoDB_Config__mdt> rows = [
+            SELECT Is_Active__c FROM AI_MongoDB_Config__mdt
+            WHERE DeveloperName = 'Default' LIMIT 1
+        ];
+        return !rows.isEmpty() && rows[0].Is_Active__c;
+    }
+
+    /**
+     * If the caller passes a Salesforce 15/18-char Id, look up the
+     * Mongo_Execution_Id__c on the AI_Execution__c record.
+     * Otherwise assume it's already a Mongo ID string and return as-is.
+     */
+    private static String resolveMongoId(String executionId) {
+        if (String.isBlank(executionId)) return executionId;
+        // Salesforce Ids are 15 or 18 chars of alphanumeric
+        if (executionId.length() == 15 || executionId.length() == 18) {
+            try {
+                Id sfId = (Id) executionId;
+                List<AI_Execution__c> rows = [
+                    SELECT Mongo_Execution_Id__c FROM AI_Execution__c WHERE Id = :sfId LIMIT 1
+                ];
+                if (!rows.isEmpty() && String.isNotBlank(rows[0].Mongo_Execution_Id__c)) {
+                    return rows[0].Mongo_Execution_Id__c;
+                }
+            } catch (Exception e) {
+                // Not a valid SF Id — treat as Mongo ID directly
+            }
+        }
+        return executionId;
     }
 }

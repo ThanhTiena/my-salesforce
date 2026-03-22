@@ -253,38 +253,87 @@ public with sharing class AIWorkflowOrchestrator {
      * Uses without sharing to write audit/execution records,
      * which the running user may not own but the system must record.
      * This is intentional and documented — audit records need system access.
+     *
+     * Phase 2 (dual-write): every method writes to Salesforce AND MongoDB.
+     * MongoDB write failures are always fire-and-forget — they never affect
+     * workflow execution. The mongoExecutionId is a pre-generated unique string
+     * stored alongside the Salesforce record Id so the two stores stay linked.
      */
     private without sharing class SystemWriter {
 
+        // Generates a unique 24-char hex ID for MongoDB execution correlation.
+        // Stored on AI_Execution__c.Mongo_Execution_Id__c and threaded through
+        // the Queueable chain for retry correlation.
+        private String generateMongoId() {
+            return EncodingUtil.convertToHex(Crypto.generateAESKey(128)).left(24);
+        }
+
         AI_Execution__c createExecution(AI_Workflow__c workflow, Id triggerRecordId) {
+            String mongoId = generateMongoId();
+
             AI_Execution__c exec = new AI_Execution__c(
-                AI_Workflow__c      = workflow.Id,
-                Status__c           = 'PENDING',
-                Trigger_Record_Id__c= triggerRecordId != null ? String.valueOf(triggerRecordId) : null,
-                Trigger_Object__c   = workflow.Trigger_Object__c,
-                Started_At__c       = Datetime.now(),
-                Initiated_By__c     = UserInfo.getUserId(),
-                Retry_Count__c      = 0
+                AI_Workflow__c        = workflow.Id,
+                Status__c             = 'PENDING',
+                Trigger_Record_Id__c  = triggerRecordId != null ? String.valueOf(triggerRecordId) : null,
+                Trigger_Object__c     = workflow.Trigger_Object__c,
+                Started_At__c         = Datetime.now(),
+                Initiated_By__c       = UserInfo.getUserId(),
+                Retry_Count__c        = 0,
+                Mongo_Execution_Id__c = mongoId
             );
             insert exec;
+
+            // ── MongoDB shadow write ──
+            MongoDBLogService.ExecutionDocument doc = new MongoDBLogService.ExecutionDocument();
+            doc.sfExecutionId    = mongoId;
+            doc.sfWorkflowId     = String.valueOf(workflow.Id);
+            doc.workflowName     = workflow.Name;
+            doc.workflowVersion  = workflow.Version__c != null ? workflow.Version__c.intValue() : 1;
+            doc.sfOrgId          = UserInfo.getOrganizationId();
+            doc.status           = 'PENDING';
+            doc.initiatedBy      = UserInfo.getUserId();
+            doc.triggerRecordId  = triggerRecordId != null ? String.valueOf(triggerRecordId) : null;
+            doc.triggerObject    = workflow.Trigger_Object__c;
+            doc.startedAtEpochMs = exec.Started_At__c.getTime();
+            doc.retryCount       = 0;
+            doc.steps            = new List<MongoDBLogService.StepDocument>();
+            doc.schemaVersion    = 1;
+            MongoDBLogService.insertExecution(doc);
+
             return exec;
         }
 
         void updateExecutionStatus(Id execId, String status, String errorMsg) {
             update new AI_Execution__c(
-                Id            = execId,
-                Status__c     = status,
+                Id               = execId,
+                Status__c        = status,
                 Error_Message__c = errorMsg
             );
+
+            // ── MongoDB shadow write ──
+            String mongoId = getMongoId(execId);
+            if (mongoId != null) {
+                MongoDBLogService.updateExecutionStatus(mongoId, status, errorMsg);
+            }
         }
 
         void updateExecutionDuration(Id execId, Long durationMs, Map<String, Object> context) {
             update new AI_Execution__c(
-                Id                = execId,
-                Completed_At__c   = Datetime.now(),
+                Id                  = execId,
+                Completed_At__c     = Datetime.now(),
                 Duration_Seconds__c = durationMs / 1000.0,
-                Context_JSON__c   = AISecurityUtil.safeSerialise(context)
+                Context_JSON__c     = AISecurityUtil.safeSerialise(context)
             );
+
+            // ── MongoDB shadow write ──
+            String mongoId = getMongoId(execId);
+            if (mongoId != null) {
+                MongoDBLogService.finaliseExecution(
+                    mongoId, 'COMPLETED', durationMs / 1000.0,
+                    getTotalTokens(execId),
+                    AISecurityUtil.safeSerialise(context), null
+                );
+            }
         }
 
         void updateWorkflowStats(Id workflowId) {
@@ -292,6 +341,7 @@ public with sharing class AIWorkflowOrchestrator {
             wf.Total_Executions__c = (wf.Total_Executions__c != null ? wf.Total_Executions__c : 0) + 1;
             wf.Last_Executed__c    = Datetime.now();
             update wf;
+            // Workflow stats stay in Salesforce only — they power the workflow list LWC
         }
 
         AI_Step_Execution__c createStepExecution(Id executionId, Id stepId) {
@@ -301,30 +351,70 @@ public with sharing class AIWorkflowOrchestrator {
                 Status__c       = 'RUNNING'
             );
             insert se;
+
+            // ── MongoDB shadow write ──
+            String mongoExecId = getMongoId(executionId);
+            if (mongoExecId != null) {
+                AI_Step__c stepDef = [SELECT Name, Step_Type__c, Order__c FROM AI_Step__c WHERE Id = :stepId LIMIT 1];
+                MongoDBLogService.StepDocument step = new MongoDBLogService.StepDocument();
+                step.sfStepExecutionId = String.valueOf(se.Id);
+                step.sfStepId          = String.valueOf(stepId);
+                step.stepName          = stepDef.Name;
+                step.stepType          = stepDef.Step_Type__c;
+                step.stepOrder         = stepDef.Order__c != null ? stepDef.Order__c.intValue() : 0;
+                step.status            = 'RUNNING';
+                step.retryAttempt      = 0;
+                MongoDBLogService.pushStep(mongoExecId, step);
+            }
+
             return se;
         }
 
         void updateStepPrompt(Id stepExecId, String prompt) {
             update new AI_Step_Execution__c(
-                Id           = stepExecId,
+                Id             = stepExecId,
                 Prompt_Sent__c = prompt.left(131072)
             );
+            // Prompt is stored in full on the updateStep call after completion
         }
 
         void completeStepExecution(Id stepExecId, AIInferenceService.AIInferenceResponse resp, Integer durationMs) {
             update new AI_Step_Execution__c(
-                Id                  = stepExecId,
-                Status__c           = 'COMPLETED',
-                Provider_Used__c    = resp.providerUsed,
-                Model_Used__c       = resp.modelUsed,
-                Raw_Response__c     = resp.rawResponse != null ? resp.rawResponse.left(131072) : null,
-                Parsed_Output__c    = resp.content != null ? resp.content.left(131072) : null,
-                Tokens_Used__c      = resp.totalTokens,
-                Prompt_Tokens__c    = resp.promptTokens,
-                Completion_Tokens__c= resp.completionTokens,
-                HTTP_Status_Code__c = resp.httpStatusCode,
-                Duration_Ms__c      = durationMs
+                Id                   = stepExecId,
+                Status__c            = 'COMPLETED',
+                Provider_Used__c     = resp.providerUsed,
+                Model_Used__c        = resp.modelUsed,
+                Raw_Response__c      = resp.rawResponse != null ? resp.rawResponse.left(131072) : null,
+                Parsed_Output__c     = resp.content != null ? resp.content.left(131072) : null,
+                Tokens_Used__c       = resp.totalTokens,
+                Prompt_Tokens__c     = resp.promptTokens,
+                Completion_Tokens__c = resp.completionTokens,
+                HTTP_Status_Code__c  = resp.httpStatusCode,
+                Duration_Ms__c       = durationMs
             );
+
+            // ── MongoDB shadow write ──
+            AI_Step_Execution__c se = [
+                SELECT AI_Execution__c, AI_Step__c, Prompt_Sent__c
+                FROM AI_Step_Execution__c WHERE Id = :stepExecId LIMIT 1
+            ];
+            String mongoExecId = getMongoId(se.AI_Execution__c);
+            if (mongoExecId != null) {
+                MongoDBLogService.StepDocument step = new MongoDBLogService.StepDocument();
+                step.sfStepExecutionId = String.valueOf(stepExecId);
+                step.status            = 'COMPLETED';
+                step.providerUsed      = resp.providerUsed;
+                step.modelUsed         = resp.modelUsed;
+                step.promptSent        = se.Prompt_Sent__c;
+                step.rawResponse       = resp.rawResponse;
+                step.parsedOutput      = resp.content;
+                step.tokensUsed        = resp.totalTokens;
+                step.promptTokens      = resp.promptTokens;
+                step.completionTokens  = resp.completionTokens;
+                step.httpStatusCode    = resp.httpStatusCode;
+                step.durationMs        = durationMs;
+                MongoDBLogService.updateStep(mongoExecId, step);
+            }
         }
 
         void completeHandlerStepExecution(Id stepExecId, AIStepResult result, Integer durationMs) {
@@ -335,14 +425,60 @@ public with sharing class AIWorkflowOrchestrator {
                 Error_Message__c = null,
                 Duration_Ms__c   = durationMs
             );
+
+            // ── MongoDB shadow write ──
+            AI_Step_Execution__c se = [
+                SELECT AI_Execution__c FROM AI_Step_Execution__c WHERE Id = :stepExecId LIMIT 1
+            ];
+            String mongoExecId = getMongoId(se.AI_Execution__c);
+            if (mongoExecId != null) {
+                MongoDBLogService.StepDocument step = new MongoDBLogService.StepDocument();
+                step.sfStepExecutionId = String.valueOf(stepExecId);
+                step.status            = 'COMPLETED';
+                step.parsedOutput      = result.output;
+                step.durationMs        = durationMs;
+                MongoDBLogService.updateStep(mongoExecId, step);
+            }
         }
 
         void failStepExecution(Id stepExecId, String errorMsg) {
             update new AI_Step_Execution__c(
-                Id            = stepExecId,
-                Status__c     = 'FAILED',
+                Id               = stepExecId,
+                Status__c        = 'FAILED',
                 Error_Message__c = errorMsg != null ? errorMsg.left(32768) : null
             );
+
+            // ── MongoDB shadow write ──
+            AI_Step_Execution__c se = [
+                SELECT AI_Execution__c FROM AI_Step_Execution__c WHERE Id = :stepExecId LIMIT 1
+            ];
+            String mongoExecId = getMongoId(se.AI_Execution__c);
+            if (mongoExecId != null) {
+                MongoDBLogService.StepDocument step = new MongoDBLogService.StepDocument();
+                step.sfStepExecutionId = String.valueOf(stepExecId);
+                step.status            = 'FAILED';
+                step.errorMessage      = errorMsg;
+                MongoDBLogService.updateStep(mongoExecId, step);
+            }
+        }
+
+        // ── Private helpers ───────────────────────────────────────────────────
+
+        private String getMongoId(Id executionId) {
+            List<AI_Execution__c> rows = [
+                SELECT Mongo_Execution_Id__c FROM AI_Execution__c WHERE Id = :executionId LIMIT 1
+            ];
+            return rows.isEmpty() ? null : rows[0].Mongo_Execution_Id__c;
+        }
+
+        private Integer getTotalTokens(Id executionId) {
+            List<AggregateResult> ar = [
+                SELECT SUM(Tokens_Used__c) total
+                FROM AI_Step_Execution__c
+                WHERE AI_Execution__c = :executionId
+            ];
+            if (ar.isEmpty() || ar[0].get('total') == null) return 0;
+            return ((Decimal) ar[0].get('total')).intValue();
         }
     }
 }

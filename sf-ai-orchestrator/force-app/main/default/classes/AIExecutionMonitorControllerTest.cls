@@ -99,11 +99,11 @@ private class AIExecutionMonitorControllerTest {
     static void testGetStepExecutions() {
         AI_Execution__c ex = [SELECT Id FROM AI_Execution__c LIMIT 1];
         Test.startTest();
-        List<AI_Step_Execution__c> steps =
-            AIExecutionMonitorController.getStepExecutions(ex.Id);
+        List<AIExecutionMonitorController.StepExecutionSummary> steps =
+            AIExecutionMonitorController.getStepExecutions(String.valueOf(ex.Id));
         Test.stopTest();
         Assert.isNotNull(steps);
         Assert.areEqual(1, steps.size());
-        Assert.areEqual('COMPLETED', steps[0].Status__c);
+        Assert.areEqual('COMPLETED', steps[0].status);
     }
 }

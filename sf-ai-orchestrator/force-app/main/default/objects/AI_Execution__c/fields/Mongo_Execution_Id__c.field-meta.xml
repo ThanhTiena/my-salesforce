@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mongo_Execution_Id__c</fullName>
+    <label>MongoDB Execution ID</label>
+    <description>24-character hex ID linking this Salesforce record to its MongoDB execution document. Used for dual-write correlation.</description>
+    <type>Text</type>
+    <length>24</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <externalId>false</externalId>
+    <unique>false</unique>
+</CustomField>
