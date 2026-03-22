@@ -4,6 +4,19 @@
     <description>Full access to configure and manage AI workflows, providers, and executions.</description>
     <hasActivationRequired>false</hasActivationRequired>
 
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>Manage_Orchestration</name>
+    </customPermissions>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>Execute_Orchestration</name>
+    </customPermissions>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>View_Orchestration</name>
+    </customPermissions>
+
     <!-- Object CRUD -->
     <objectPermissions>
         <allowCreate>true</allowCreate>

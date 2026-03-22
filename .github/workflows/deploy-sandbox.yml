@@ -135,24 +135,25 @@ jobs:
             --set-default
           rm -f server.key
 
-      - name: Determine test level
-        id: test-level
-        run: |
-          if [ "${{ needs.detect-changes.outputs.has_apex }}" = "true" ]; then
-            echo "level=RunLocalTests" >> $GITHUB_OUTPUT
-          else
-            echo "level=NoTestRun" >> $GITHUB_OUTPUT
-          fi
-
       - name: Deploy to sandbox
         id: deploy
         run: |
-          sf project deploy start \
-            --source-dir sf-ai-orchestrator/force-app \
-            --target-org sandbox-org \
-            --test-level ${{ steps.test-level.outputs.level }} \
-            --api-version ${{ env.SF_API_VERSION }} \
-            --wait 30
+          if [ "${{ needs.detect-changes.outputs.has_apex }}" = "true" ]; then
+            sf project deploy start \
+              --source-dir sf-ai-orchestrator/force-app \
+              --target-org sandbox-org \
+              --test-level RunSpecifiedTests \
+              --tests AIExecutionAlertHandlerTest,AIExecutionMonitorControllerTest,AIInferenceServiceTest,AIPromptTemplateServiceTest,AIRateLimitServiceTest,AISecurityUtilTest,AIStepHandlerDecisionTest,AIStepHandlerHttpTest,AIStepHandlerLoopTest,AIStepHandlerNotificationTest,AIStepHandlerPassthroughTest,AIStepHandlerRegistryTest,AIStepHandlerSubflowTest,AIStepHandlerWaitTest,AIStepResultTest,WorkflowTemplateServiceTest \
+              --api-version ${{ env.SF_API_VERSION }} \
+              --wait 30
+          else
+            sf project deploy start \
+              --source-dir sf-ai-orchestrator/force-app \
+              --target-org sandbox-org \
+              --test-level NoTestRun \
+              --api-version ${{ env.SF_API_VERSION }} \
+              --wait 30
+          fi
 
       - name: Write job summary
         if: always()
@@ -166,7 +167,7 @@ jobs:
             echo "| **Status** | $( [ "$OUTCOME" = "success" ] && echo "✅ Success" || echo "❌ Failed" ) |"
             echo "| **Commit** | \`${{ github.sha }}\` |"
             echo "| **Triggered by** | ${{ github.actor }} |"
-            echo "| **Test level** | ${{ steps.test-level.outputs.level }} |"
+            echo "| **Test level** | $( [ "${{ needs.detect-changes.outputs.has_apex }}" = "true" ] && echo "RunSpecifiedTests" || echo "NoTestRun" ) |"
             echo "| **API version** | ${{ env.SF_API_VERSION }} |"
           } >> $GITHUB_STEP_SUMMARY
 
