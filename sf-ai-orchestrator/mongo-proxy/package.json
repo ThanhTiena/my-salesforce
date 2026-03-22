@@ -1,0 +1,9 @@
+{
+  "name": "mongo-proxy",
+  "version": "1.0.0",
+  "description": "Thin Lambda REST proxy for MongoDB — replaces deprecated Atlas Data API",
+  "main": "handler.js",
+  "dependencies": {
+    "mongodb": "^6.0.0"
+  }
+}

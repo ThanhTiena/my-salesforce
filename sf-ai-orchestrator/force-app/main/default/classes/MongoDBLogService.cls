@@ -504,7 +504,10 @@ public with sharing class MongoDBLogService {
         Map<String, Object> payload,
         AI_MongoDB_Config__mdt cfg
     ) {
-        String path = '/app/' + cfg.App_Id__c + '/endpoint/data/v1/action/' + action;
+        // Path: /<basePath>/action/<action>
+        // basePath is optional (App_Id__c field re-purposed as proxy base path)
+        String basePath = String.isBlank(cfg.App_Id__c) ? '' : '/' + cfg.App_Id__c.removeStart('/');
+        String path = basePath + '/action/' + action;
         payload.put('dataSource', cfg.Data_Source__c);
         payload.put('database',   cfg.Database_Name__c);
 

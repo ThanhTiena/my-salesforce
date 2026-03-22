@@ -8,8 +8,9 @@
         <value xsi:type="xsd:string">AI_MongoDB_Atlas</value>
     </values>
     <values>
+        <!-- Proxy base path — leave empty if your proxy root IS the action endpoint -->
         <field>App_Id__c</field>
-        <value xsi:type="xsd:string">YOUR_ATLAS_APP_ID</value>
+        <value xsi:type="xsd:string"></value>
     </values>
     <values>
         <field>Data_Source__c</field>

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>App_Id__c</fullName>
-    <label>Atlas App ID</label>
+    <label>Proxy Base Path</label>
+    <description>Base path of your MongoDB REST proxy (e.g. /mongo). The Named Credential URL + this path forms the root endpoint.</description>
     <type>Text</type>
-    <length>80</length>
-    <required>true</required>
+    <length>255</length>
+    <required>false</required>
 </CustomField>

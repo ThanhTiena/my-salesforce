@@ -8,7 +8,7 @@
 #   detect-changes  → what changed?
 #   build-assets    → Webpack bundle (if LWC or static-resource-src changed)
 #   validate        → sf project deploy --dry-run against sandbox
-#   report          → post summary comment to PR
+#   report          → post detailed summary comment to PR
 # ==============================================================================
 
 name: Validate PR
@@ -72,10 +72,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const apex     = '${{ steps.filter.outputs.apex }}'     === 'true';
-            const lwc      = '${{ steps.filter.outputs.lwc }}'      === 'true';
-            const meta     = '${{ steps.filter.outputs.metadata }}' === 'true';
-            const staticSrc= '${{ steps.filter.outputs.static_src }}'=== 'true';
+            const apex     = '${{ steps.filter.outputs.apex }}'      === 'true';
+            const lwc      = '${{ steps.filter.outputs.lwc }}'       === 'true';
+            const meta     = '${{ steps.filter.outputs.metadata }}'  === 'true';
+            const staticSrc= '${{ steps.filter.outputs.static_src }}' === 'true';
 
             const row = (label, val) => `| ${val ? '✅' : '⬜'} | ${label} |`;
             const body = [
@@ -136,7 +136,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: sandbox   # scopes SF_SANDBOX_* secrets to this env
     outputs:
-      outcome: ${{ steps.validate.outcome }}
+      outcome:    ${{ steps.validate.outcome }}
+      test_count: ${{ steps.list-tests.outputs.count }}
+      test_names: ${{ steps.list-tests.outputs.names }}
     steps:
       - uses: actions/checkout@v4
 
@@ -166,23 +168,35 @@ jobs:
             --set-default
           rm -f server.key
 
+      - name: List test classes
+        id: list-tests
+        run: |
+          # Discover all *Test.cls files under the project source (space-separated)
+          NAMES=$(find sf-ai-orchestrator/force-app -name '*Test.cls' \
+            | xargs -I{} basename {} .cls \
+            | sort \
+            | tr '\n' ' ' \
+            | xargs)
+          COUNT=$(echo "$NAMES" | wc -w | xargs)
+          echo "names=$NAMES" >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Discovered $COUNT test classes: $NAMES"
+
       - name: Validate (dry-run)
         id: validate
         run: |
           if [ "${{ needs.detect-changes.outputs.has_apex }}" = "true" ]; then
-            TEST_FLAGS=$(find sf-ai-orchestrator/force-app -name '*Test.cls' \
-              | xargs -I{} basename {} .cls \
-              | sed 's/^/--tests /' \
-              | tr '\n' ' ')
+            echo "Running with RunSpecifiedTests: ${{ steps.list-tests.outputs.names }}"
             sf project deploy start \
               --source-dir sf-ai-orchestrator/force-app \
               --target-org validation-org \
               --test-level RunSpecifiedTests \
-              --tests $TESTS \
+              --tests ${{ steps.list-tests.outputs.names }} \
               --api-version ${{ env.SF_API_VERSION }} \
               --dry-run \
               --wait 30
           else
+            echo "No Apex changes — skipping test run"
             sf project deploy start \
               --source-dir sf-ai-orchestrator/force-app \
               --target-org validation-org \
@@ -205,32 +219,71 @@ jobs:
             const buildResult    = '${{ needs.build-assets.result }}';
             const validateResult = '${{ needs.validate.result }}';
             const noChanges      = '${{ needs.detect-changes.outputs.has_sf_changes }}' !== 'true';
+            const hasApex        = '${{ needs.detect-changes.outputs.has_apex }}'        === 'true';
+            const hasLwc         = '${{ needs.detect-changes.outputs.has_lwc }}'         === 'true';
+            const hasMeta        = '${{ needs.detect-changes.outputs.has_metadata }}'    === 'true';
+            const testCount      = '${{ needs.validate.outputs.test_count }}';
+            const testNames      = '${{ needs.validate.outputs.test_names }}';
+            const runUrl         = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
-            let status, detail;
+            // ── Status banner ──
+            let banner;
             if (noChanges) {
-              status = '⬜ No Salesforce changes detected — validation skipped.';
-              detail = '';
+              banner = '⬜ **No Salesforce changes** — validation skipped.';
             } else if (validateResult === 'success') {
-              status = '✅ **Validation passed** — safe to merge.';
-              detail = 'Deployment dry-run completed without errors.';
+              banner = '## ✅ Validation Passed — safe to merge';
             } else if (validateResult === 'failure') {
-              status = '❌ **Validation failed** — merge blocked.';
-              detail = 'Check the Actions logs for error details.';
+              banner = '## ❌ Validation Failed — merge blocked';
             } else if (buildResult === 'failure') {
-              status = '❌ **Asset build failed** — validation skipped.';
-              detail = 'Webpack build error. Check the build-assets job logs.';
+              banner = '## ❌ Asset Build Failed — validation skipped';
             } else {
-              status = '⚠️ Validation skipped or cancelled.';
-              detail = '';
+              banner = '## ⚠️ Validation skipped or cancelled';
+            }
+
+            // ── Changes table ──
+            const row = (label, val) => `| ${val ? '✅' : '⬜'} | ${label} |`;
+            const changesTable = [
+              '',
+              '### What changed',
+              '| | Component |',
+              '|---|---|',
+              row('Apex Classes / Triggers', hasApex),
+              row('Lightning Web Components', hasLwc),
+              row('Metadata (Objects, Fields, etc.)', hasMeta),
+            ].join('\n');
+
+            // ── Test summary ──
+            let testSection = '';
+            if (hasApex && testCount) {
+              const names = testNames.trim().split(/\s+/).map(n => `- \`${n}\``).join('\n');
+              testSection = [
+                '',
+                `### Test Classes Run (${testCount})`,
+                names,
+              ].join('\n');
+            } else if (hasApex) {
+              testSection = '\n> No test classes discovered in source.';
+            } else {
+              testSection = '\n> Tests skipped — no Apex changes detected.';
+            }
+
+            // ── Result detail ──
+            let detail = '';
+            if (validateResult === 'failure') {
+              detail = '\n> Check the [Actions logs](' + runUrl + ') for compiler errors or test failures.';
+            } else if (validateResult === 'success') {
+              detail = '\n> Deployment dry-run completed without errors. All discovered tests passed.';
+            } else if (buildResult === 'failure') {
+              detail = '\n> Webpack build error — check the build-assets job logs.';
             }
 
             const body = [
-              '## Validation Result',
-              '',
-              status,
+              banner,
+              changesTable,
+              testSection,
               detail,
               '',
-              `[View full run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+              `[View full run](${runUrl})`,
             ].join('\n');
 
             await github.rest.issues.createComment({
