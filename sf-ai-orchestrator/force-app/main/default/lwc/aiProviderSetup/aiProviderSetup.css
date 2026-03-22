@@ -1,0 +1,14 @@
+table th {
+    font-weight: 700;
+    background: var(--lwc-colorBackgroundRowSelected, #f3f3f3);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid var(--lwc-colorBorder, #dddbda);
+}
+table td {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
+}
+.badge-success {
+    --sds-c-badge-color-background: #2e844a;
+    --sds-c-badge-text-color: #ffffff;
+}

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Azure OpenAI GPT-4</label>
+    <protected>false</protected>
+    <values>
+        <field>Provider_Type__c</field>
+        <value xsi:type="xsd:string">AZURE_OPENAI</value>
+    </values>
+    <values>
+        <field>Endpoint_URL__c</field>
+        <value xsi:type="xsd:string">https://your-resource.openai.azure.com</value>
+    </values>
+    <values>
+        <field>Named_Credential_API_Name__c</field>
+        <value xsi:type="xsd:string">AI_Azure_OpenAI</value>
+    </values>
+    <values>
+        <field>Default_Model__c</field>
+        <value xsi:type="xsd:string">gpt-4</value>
+    </values>
+    <values>
+        <field>Max_Tokens__c</field>
+        <value xsi:type="xsd:double">4096</value>
+    </values>
+    <values>
+        <field>Temperature__c</field>
+        <value xsi:type="xsd:double">0.7</value>
+    </values>
+    <values>
+        <field>Rate_Limit_RPM__c</field>
+        <value xsi:type="xsd:double">60</value>
+    </values>
+    <values>
+        <field>Rate_Limit_TPM__c</field>
+        <value xsi:type="xsd:double">90000</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Timeout_Seconds__c</field>
+        <value xsi:type="xsd:double">30</value>
+    </values>
+    <values>
+        <field>Supports_Streaming__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>API_Version__c</field>
+        <value xsi:type="xsd:string">2024-02-01</value>
+    </values>
+    <values>
+        <field>Custom_Headers_JSON__c</field>
+        <value xsi:nil="true"/>
+    </values>
+</CustomMetadata>

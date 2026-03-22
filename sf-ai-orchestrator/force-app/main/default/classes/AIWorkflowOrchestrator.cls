@@ -82,6 +82,7 @@ public with sharing class AIWorkflowOrchestrator {
             for (AI_Step__c step : steps) {
                 if (!step.Is_Active__c) continue;
 
+                checkLimits();
                 AI_Step_Execution__c stepExec = writer.createStepExecution(execution.Id, step.Id);
                 Datetime stepStart = Datetime.now();
 
@@ -209,6 +210,22 @@ public with sharing class AIWorkflowOrchestrator {
             WHERE AI_Workflow__c = :workflowId
             ORDER BY Order__c ASC
         ];
+    }
+
+    /**
+     * Checks that we have enough governor limit headroom to execute the next step.
+     * Throws OrchestratorException if limits are critically low.
+     */
+    private static void checkLimits() {
+        if (Limits.getQueries() >= 90) {
+            throw new OrchestratorException('SOQL governor limit headroom exhausted (' + Limits.getQueries() + '/100). Aborting step chain.');
+        }
+        if (Limits.getDMLStatements() >= 140) {
+            throw new OrchestratorException('DML governor limit headroom exhausted (' + Limits.getDMLStatements() + '/150). Aborting step chain.');
+        }
+        if (Limits.getCpuTime() >= 9000) {
+            throw new OrchestratorException('CPU time limit approaching (' + Limits.getCpuTime() + 'ms). Aborting step chain.');
+        }
     }
 
     /**

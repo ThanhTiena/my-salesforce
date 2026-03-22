@@ -1,0 +1,151 @@
+.monitor-root {
+    padding: 1rem;
+    background: var(--lwc-colorBackground, #f3f2f2);
+    min-height: 100%;
+}
+
+.monitor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.monitor-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--lwc-colorTextDefault, #181818);
+}
+
+.monitor-header-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+}
+
+.period-select {
+    min-width: 160px;
+}
+
+/* Metric tiles */
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.metric-tile {
+    background: #fff;
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.metric-tile--success { border-top: 3px solid #2e844a; }
+.metric-tile--danger  { border-top: 3px solid #ba0517; }
+.metric-tile--info    { border-top: 3px solid #0070d2; }
+
+.metric-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--lwc-colorTextDefault, #181818);
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: var(--lwc-colorTextWeak, #706e6b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Section cards */
+.section-card {
+    background: #fff;
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--lwc-colorTextDefault, #181818);
+}
+
+/* Table */
+.monitor-table th {
+    background: var(--lwc-colorBackgroundRowSelected, #f3f2f2);
+    font-weight: 700;
+    padding: 0.5rem 0.75rem;
+    white-space: nowrap;
+}
+
+.monitor-table td {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
+}
+
+/* Status badges */
+lightning-badge.badge-success { --sds-c-badge-color-background: #2e844a; --sds-c-badge-text-color: #fff; }
+lightning-badge.badge-danger  { --sds-c-badge-color-background: #ba0517; --sds-c-badge-text-color: #fff; }
+lightning-badge.badge-info    { --sds-c-badge-color-background: #0070d2; --sds-c-badge-text-color: #fff; }
+lightning-badge.badge-warning { --sds-c-badge-color-background: #dd7a01; --sds-c-badge-text-color: #fff; }
+lightning-badge.badge-neutral { --sds-c-badge-color-background: #706e6b; --sds-c-badge-text-color: #fff; }
+
+/* Token grid */
+.token-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.token-tile {
+    background: var(--lwc-colorBackground, #f3f2f2);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 140px;
+}
+
+.token-provider {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.token-count {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0070d2;
+}
+
+.token-label {
+    font-size: 0.75rem;
+    color: var(--lwc-colorTextWeak, #706e6b);
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--lwc-colorTextWeak, #706e6b);
+}
+
+.empty-hint {
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}

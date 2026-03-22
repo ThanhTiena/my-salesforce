@@ -1,130 +1,108 @@
 import { LightningElement, track } from 'lwc';
-import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import getExecutions    from '@salesforce/apex/AIExecutionMonitorController.getExecutions';
-import getStepExecutions from '@salesforce/apex/AIExecutionMonitorController.getStepExecutions';
+import getDashboardMetrics   from '@salesforce/apex/AIExecutionMonitorController.getDashboardMetrics';
+import getRecentExecutions   from '@salesforce/apex/AIExecutionMonitorController.getRecentExecutions';
+import getTokenUsageByProvider from '@salesforce/apex/AIExecutionMonitorController.getTokenUsageByProvider';
+import getStepExecutions     from '@salesforce/apex/AIExecutionMonitorController.getStepExecutions';
 
-const COLUMNS = [
-    { label: 'Name',        fieldName: 'Name',            type: 'text'    },
-    { label: 'Workflow',    fieldName: 'workflowName',    type: 'text'    },
-    { label: 'Status',      fieldName: 'Status__c',       type: 'text'    },
-    { label: 'Started',     fieldName: 'Started_At__c',   type: 'date',
-      typeAttributes: { year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', minute: '2-digit' } },
-    { label: 'Duration (s)', fieldName: 'Duration_Seconds__c', type: 'number' },
-    { label: 'Tokens',      fieldName: 'Total_Tokens_Used__c', type: 'number' },
-    { label: 'Triggered By', fieldName: 'initiatedBy',   type: 'text'    },
-    { type: 'action', typeAttributes: {
-        rowActions: [{ label: 'View Detail', name: 'view_detail' }]
-    }}
-];
+const STATUS_CLASSES = {
+    COMPLETED : 'badge-success',
+    FAILED    : 'badge-danger',
+    RUNNING   : 'badge-info',
+    RETRYING  : 'badge-warning',
+    PENDING   : 'badge-neutral',
+};
 
-const STEP_COLUMNS = [
-    { label: 'Step',        fieldName: 'stepName',        type: 'text'    },
-    { label: 'Status',      fieldName: 'Status__c',       type: 'text'    },
-    { label: 'Provider',    fieldName: 'Provider_Used__c', type: 'text'   },
-    { label: 'Model',       fieldName: 'Model_Used__c',   type: 'text'    },
-    { label: 'Tokens',      fieldName: 'Tokens_Used__c',  type: 'number'  },
-    { label: 'Duration (ms)', fieldName: 'Duration_Ms__c', type: 'number' },
-    { label: 'Error',       fieldName: 'Error_Message__c', type: 'text'   }
-];
-
-const STATUS_OPTIONS = [
-    { label: 'All',        value: '' },
-    { label: 'Pending',    value: 'PENDING' },
-    { label: 'Running',    value: 'RUNNING' },
-    { label: 'Completed',  value: 'COMPLETED' },
-    { label: 'Failed',     value: 'FAILED' },
-    { label: 'Retrying',   value: 'RETRYING' },
-    { label: 'Cancelled',  value: 'CANCELLED' }
+const PERIOD_OPTIONS = [
+    { label: 'Last 24 hours', value: '1'  },
+    { label: 'Last 7 days',   value: '7'  },
+    { label: 'Last 30 days',  value: '30' },
 ];
 
 export default class AiExecutionMonitor extends LightningElement {
-    @track executions       = [];
-    @track isLoading        = false;
-    @track error            = null;
-    @track statusFilter     = '';
-    @track searchTerm       = '';
-    @track showDetail       = false;
-    @track selectedExecution = null;
-    @track selectedStepExecutions = [];
 
-    columns      = COLUMNS;
-    stepColumns  = STEP_COLUMNS;
-    statusOptions = STATUS_OPTIONS;
+    @track metrics      = {};
+    @track executions   = [];
+    @track tokenUsage   = [];
+    @track stepExecutions = [];
+    @track isLoading    = false;
+    @track showStepModal = false;
+
+    daysBack = '7';
+
+    get periodOptions() { return PERIOD_OPTIONS; }
 
     connectedCallback() {
-        this.loadExecutions();
+        this._loadAll();
     }
 
-    async loadExecutions() {
+    // ─── Data Loading ────────────────────────────────────────────────────────
+
+    async _loadAll() {
         this.isLoading = true;
-        this.error     = null;
         try {
-            const data = await getExecutions({
-                statusFilter: this.statusFilter,
-                searchTerm:   this.searchTerm
-            });
-            // Flatten lookup fields for datatable
-            this.executions = data.map(e => ({
-                ...e,
-                workflowName: e.AI_Workflow__r?.Name  ?? '',
-                initiatedBy:  e.Initiated_By__r?.Name ?? ''
+            const days = parseInt(this.daysBack, 10);
+            const [metrics, executions, tokenUsage] = await Promise.all([
+                getDashboardMetrics({ daysBack: days }),
+                getRecentExecutions({ limitRows: 25 }),
+                getTokenUsageByProvider({ daysBack: days }),
+            ]);
+
+            this.metrics    = metrics ?? {};
+            this.tokenUsage = tokenUsage ?? [];
+            this.executions = (executions ?? []).map(ex => ({
+                ...ex,
+                statusClass     : STATUS_CLASSES[ex.status] ?? 'badge-neutral',
+                startedAtDisplay: ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—',
+                durationDisplay : ex.durationSeconds != null
+                    ? ex.durationSeconds.toFixed(1) + 's' : '—',
             }));
-        } catch (err) {
-            this.error = err.body?.message ?? 'Failed to load executions';
+        } catch (e) {
+            console.error('Monitor load error:', e);
         } finally {
             this.isLoading = false;
         }
     }
 
-    handleStatusFilter(event) {
-        this.statusFilter = event.detail.value;
-        this.loadExecutions();
+    // ─── Getters ─────────────────────────────────────────────────────────────
+
+    get hasExecutions()  { return this.executions.length > 0; }
+    get hasTokenData()   { return this.tokenUsage.length > 0; }
+    get hasStepData()    { return this.stepExecutions.length > 0; }
+
+    get successRateDisplay() {
+        if (!this.metrics.successRate && this.metrics.successRate !== 0) return '—';
+        return this.metrics.successRate.toFixed(1) + '%';
     }
 
-    handleSearch(event) {
-        this.searchTerm = event.detail.value;
-        this.loadExecutions();
+    get totalTokensDisplay() {
+        const t = this.metrics.totalTokensUsed;
+        if (!t) return '0';
+        return t >= 1000 ? (t / 1000).toFixed(1) + 'k' : String(t);
+    }
+
+    // ─── Handlers ─────────────────────────────────────────────────────────────
+
+    handlePeriodChange(event) {
+        this.daysBack = event.detail.value;
+        this._loadAll();
     }
 
     handleRefresh() {
-        this.loadExecutions();
+        this._loadAll();
     }
 
-    async handleRowAction(event) {
-        const action = event.detail.action;
-        const row    = event.detail.row;
-
-        if (action.name === 'view_detail') {
-            this.selectedExecution = row;
-            this.showDetail        = true;
-            await this.loadStepExecutions(row.Id);
-        }
-    }
-
-    async loadStepExecutions(executionId) {
+    async handleViewSteps(event) {
+        const execId = event.currentTarget.dataset.id;
+        this.showStepModal = true;
         try {
-            const steps = await getStepExecutions({ executionId });
-            this.selectedStepExecutions = steps.map(s => ({
-                ...s,
-                stepName: s.AI_Step__c ?? ''
-            }));
-        } catch (err) {
-            this.dispatchEvent(new ShowToastEvent({
-                title:   'Error',
-                message: err.body?.message ?? 'Failed to load step details',
-                variant: 'error'
-            }));
+            this.stepExecutions = await getStepExecutions({ executionId: execId });
+        } catch (e) {
+            console.error('Failed to load steps:', e);
         }
     }
 
-    closeDetail() {
-        this.showDetail             = false;
-        this.selectedExecution      = null;
-        this.selectedStepExecutions = [];
-    }
-
-    get isEmpty() {
-        return !this.isLoading && this.executions.length === 0;
+    handleCloseModal() {
+        this.showStepModal   = false;
+        this.stepExecutions  = [];
     }
 }
