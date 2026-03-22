@@ -1,0 +1,5 @@
+.export-root { padding: 0.5rem 0; }
+.export-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.import-wrapper { position: relative; }
+.file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.import-error { color: #c23934; font-size: 0.75rem; margin-top: 0.25rem; }

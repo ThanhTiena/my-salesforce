@@ -19,14 +19,15 @@ public with sharing class AIInferenceService {
     // ─── DTOs ────────────────────────────────────────────────────────────────
 
     public class AIInferenceRequest {
-        public String  providerDeveloperName;   // AI_Provider__mdt.DeveloperName
-        public String  modelOverride;            // null = use provider default
+        public String  providerDeveloperName;           // AI_Provider__mdt.DeveloperName
+        public String  fallbackProviderDeveloperName;   // used when primary provider fails
+        public String  modelOverride;                   // null = use provider default
         public String  systemPrompt;
         public String  userPrompt;
-        public Decimal temperature;              // null = use provider default
-        public Integer maxTokens;               // null = use provider default
-        public String  responseFormat;          // TEXT | JSON
-        public Map<String, Object> extraParams; // provider-specific extras
+        public Decimal temperature;                     // null = use provider default
+        public Integer maxTokens;                       // null = use provider default
+        public String  responseFormat;                  // TEXT | JSON
+        public Map<String, Object> extraParams;         // provider-specific extras
     }
 
     public class AIInferenceResponse {
@@ -102,11 +103,32 @@ public with sharing class AIInferenceService {
         // 4. Apply provider defaults where request doesn't override
         applyDefaults(request, providerConfig);
 
+        // 4a. Rate limit check
+        if (providerConfig.Rate_Limit_RPM__c != null) {
+            AIRateLimitService.checkAndIncrement(
+                request.providerDeveloperName,
+                providerConfig.Rate_Limit_RPM__c.intValue()
+            );
+        }
+
         // 5. Dispatch
         AIInferenceResponse response;
         try {
             response = adapter.inference(request);
         } catch (CalloutException ce) {
+            // Attempt fallback provider if specified
+            if (String.isNotBlank(request.fallbackProviderDeveloperName)) {
+                AIInferenceRequest fallbackReq = request.clone();
+                fallbackReq.providerDeveloperName = request.fallbackProviderDeveloperName;
+                fallbackReq.fallbackProviderDeveloperName = null; // prevent infinite recursion
+                try {
+                    AIInferenceResponse fallbackResp = run(fallbackReq);
+                    fallbackResp.errorMessage = 'Primary failed (' + ce.getMessage() + '), used fallback: ' + request.fallbackProviderDeveloperName;
+                    return fallbackResp;
+                } catch (Exception fallbackEx) {
+                    // fallback also failed — fall through to error response
+                }
+            }
             AIInferenceResponse errResp = new AIInferenceResponse();
             errResp.success      = false;
             errResp.errorMessage = 'Callout failed: ' + ce.getMessage();

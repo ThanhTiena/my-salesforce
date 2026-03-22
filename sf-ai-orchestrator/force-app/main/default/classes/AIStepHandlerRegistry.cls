@@ -16,7 +16,9 @@ public class AIStepHandlerRegistry {
             'WAIT'         => new AIStepHandlerWait(),
             'NOTIFICATION' => new AIStepHandlerNotification(),
             'START'        => new AIStepHandlerPassthrough(),
-            'END'          => new AIStepHandlerPassthrough()
+            'END'          => new AIStepHandlerPassthrough(),
+            'SUBFLOW'      => new AIStepHandlerSubflow(),
+            'LOOP'         => new AIStepHandlerLoop()
         };
     }
 
