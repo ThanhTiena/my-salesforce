@@ -1,18 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>AI Orchestration User</label>
-    <description>Read-only access to AI execution audit logs. Cannot modify workflows or provider configs.</description>
+    <label>AI Orchestration Viewer</label>
+    <description>Read-only access to AI workflow monitoring and execution history.</description>
     <hasActivationRequired>false</hasActivationRequired>
-
-    <customPermissions>
-        <enabled>true</enabled>
-        <name>Execute_Orchestration</name>
-    </customPermissions>
     <customPermissions>
         <enabled>true</enabled>
         <name>View_Orchestration</name>
     </customPermissions>
-
     <objectPermissions>
         <allowCreate>false</allowCreate>
         <allowDelete>false</allowDelete>
@@ -21,6 +15,15 @@
         <modifyAllRecords>false</modifyAllRecords>
         <viewAllRecords>false</viewAllRecords>
         <object>AI_Workflow__c</object>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <viewAllRecords>false</viewAllRecords>
+        <object>AI_Step__c</object>
     </objectPermissions>
     <objectPermissions>
         <allowCreate>false</allowCreate>
