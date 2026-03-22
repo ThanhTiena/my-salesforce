@@ -18,20 +18,46 @@ graph TD
     C -->|audit| O[AI_Execution__c]
     C -->|audit| P[AI_Step_Execution__c]
     C -->|write output| Q[Trigger Record Field]
+    C -->|log via MongoDBLogService| R[AI_MongoDB_Atlas NC]
+    R -->|POST /api/salesforce/data/action/...| S[Vercel Next.js Proxy]
+    S -->|MongoDB driver| T[(MongoDB Atlas)]
 ```
 
 ## Security Architecture
 
 ```mermaid
 graph LR
-    Code["Apex Code"] -->|reads config| CMDT["AI_Provider__mdt\n(no secrets)"]
+    Code["Apex Code"] -->|reads config| CMDT["AI_Provider__mdt\nAI_MongoDB_Config__mdt\n(no secrets)"]
     Code -->|callout:NC_name| NC["Named Credential"]
-    NC -->|External Credential| ECS["Salesforce\nCredential Store\n(API Keys)"]
+    NC -->|External Credential| ECS["Salesforce\nCredential Store\n(API Keys / x-api-key)"]
     NC -->|HTTPS| API["AI Provider\nExternal API"]
+    NC -->|HTTPS + x-api-key| VP["Vercel Next.js Proxy\n/api/salesforce/data"]
+    VP -->|MONGODB_URI| DB["MongoDB Atlas"]
 
     Code -->|CRUD/FLS check| SU["AISecurityUtil"]
     Code -->|sanitise input| SU
     SU -->|block| BAD["SQL injection\nPrompt injection\nOversized payloads"]
+```
+
+### Vercel Proxy API
+
+The `MongoDBLogService` uses a Vercel-hosted Next.js app as a secure proxy between
+Salesforce and MongoDB Atlas. Direct Atlas Data API access from Salesforce is replaced
+by this proxy to allow full control over authentication, schema validation, and routing.
+
+| Vercel Env Var       | Purpose                                                        |
+|----------------------|----------------------------------------------------------------|
+| `MONGODB_URI`        | Atlas connection string                                        |
+| `MONGODB_DB_NAME`    | Database name (default: `salesforce`)                          |
+| `SALESFORCE_API_KEY` | Shared secret validated on every request via `x-api-key` header |
+
+**Request flow for execution logging:**
+
+```
+Salesforce Apex (MongoDBLogService)
+  → callout:AI_MongoDB_Atlas/api/salesforce/data/action/insertOne   [x-api-key header via External Credential]
+  → Vercel /api/salesforce/data (POST)
+  → MongoDB Atlas — collection: ai_executions
 ```
 
 ## Data Model

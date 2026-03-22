@@ -5,30 +5,40 @@
     <protected>false</protected>
     <values>
         <field>Named_Credential_API_Name__c</field>
+        <!-- Must match the API Name of the Named Credential: AI_MongoDB_Atlas -->
         <value xsi:type="xsd:string">AI_MongoDB_Atlas</value>
     </values>
     <values>
-        <!-- Proxy base path — leave empty if your proxy root IS the action endpoint -->
+        <!-- Base path for the Vercel proxy API.
+             MongoDBLogService appends /action/<action> to this, producing paths like:
+               /api/salesforce/data/action/insertOne
+             The Vercel Next.js route handler must accept these sub-paths. -->
         <field>App_Id__c</field>
-        <value xsi:type="xsd:string"></value>
+        <value xsi:type="xsd:string">api/salesforce/data</value>
     </values>
     <values>
+        <!-- Passed as "dataSource" in the request body — used by the Vercel proxy
+             to identify which MongoDB Atlas cluster to target. -->
         <field>Data_Source__c</field>
         <value xsi:type="xsd:string">Cluster0</value>
     </values>
     <values>
+        <!-- MongoDB database name configured in the Vercel MONGODB_DB_NAME env var. -->
         <field>Database_Name__c</field>
-        <value xsi:type="xsd:string">sf_ai_orchestrator</value>
+        <value xsi:type="xsd:string">salesforce</value>
     </values>
     <values>
+        <!-- MongoDB collection that stores AI execution logs. -->
         <field>Executions_Collection__c</field>
         <value xsi:type="xsd:string">ai_executions</value>
     </values>
     <values>
+        <!-- Your Salesforce Org ID (15 or 18 chars), used to scope queries. -->
         <field>Org_Id__c</field>
         <value xsi:type="xsd:string">YOUR_SF_ORG_ID</value>
     </values>
     <values>
+        <!-- Set to true once the Named Credential and Vercel deployment are configured. -->
         <field>Is_Active__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
