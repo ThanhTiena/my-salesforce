@@ -1,0 +1,69 @@
+<template>
+    <div class="prompt-builder-root">
+
+        <!-- Prompt Template Textarea -->
+        <div class="prompt-section">
+            <lightning-textarea
+                label="Prompt Template"
+                value={templateValue}
+                rows="8"
+                onchange={handleTemplateChange}>
+            </lightning-textarea>
+            <div class="char-count">
+                {charCountDisplay}
+            </div>
+        </div>
+
+        <!-- Variable Pills -->
+        <div class="variables-section">
+            <p class="variables-label">Variables (click to insert):</p>
+            <div class="pill-container">
+                <template for:each={tokenPills} for:item="pill">
+                    <span
+                        key={pill.token}
+                        class="variable-pill"
+                        data-token={pill.token}
+                        onclick={handlePillClick}>
+                        {pill.token}
+                    </span>
+                </template>
+            </div>
+        </div>
+
+        <!-- Insert Variable Composer -->
+        <div class="insert-section">
+            <p class="insert-label">Insert Variable</p>
+            <div class="insert-row">
+                <lightning-combobox
+                    label="Object"
+                    value={selectedObject}
+                    options={objectOptions}
+                    onchange={handleObjectChange}
+                    class="insert-combo">
+                </lightning-combobox>
+                <lightning-combobox
+                    label="Field"
+                    value={selectedField}
+                    options={fieldOptions}
+                    onchange={handleFieldChange}
+                    class="insert-combo">
+                </lightning-combobox>
+                <lightning-button
+                    label="Insert"
+                    onclick={handleInsertToken}
+                    class="insert-btn">
+                </lightning-button>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="prompt-actions">
+            <lightning-button
+                label="Copy Prompt"
+                icon-name="utility:copy"
+                onclick={handleCopyPrompt}>
+            </lightning-button>
+        </div>
+
+    </div>
+</template>

@@ -1,0 +1,33 @@
+<template>
+    <div class="export-root">
+        <div class="export-row">
+            <lightning-button
+                label="Export JSON"
+                icon-name="utility:download"
+                onclick={handleExport}>
+            </lightning-button>
+
+            <div class="import-wrapper">
+                <lightning-button
+                    label="Import JSON"
+                    icon-name="utility:upload"
+                    onclick={handleImportClick}>
+                </lightning-button>
+                <input
+                    type="file"
+                    accept=".json"
+                    class="file-input"
+                    data-id="fileInput"
+                    onchange={handleFileChange}>
+            </div>
+        </div>
+
+        <template if:true={hasImportError}>
+            <p class="import-error">{importError}</p>
+        </template>
+
+        <template if:true={isImporting}>
+            <lightning-spinner size="small" alternative-text="Importing..."></lightning-spinner>
+        </template>
+    </div>
+</template>

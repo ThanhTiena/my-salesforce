@@ -1,0 +1,66 @@
+.prompt-builder-root {
+    padding: 0.5rem;
+}
+
+.prompt-section {
+    margin-bottom: 1rem;
+}
+
+.char-count {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+.variables-section {
+    margin-bottom: 1rem;
+}
+
+.variables-label,
+.insert-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.4rem;
+}
+
+.pill-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.variable-pill {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.variable-pill:hover {
+    background: #bae6fd;
+}
+
+.insert-section {
+    margin-bottom: 1rem;
+}
+
+.insert-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.insert-combo {
+    flex: 1;
+}
+
+.prompt-actions {
+    display: flex;
+    gap: 0.5rem;
+}

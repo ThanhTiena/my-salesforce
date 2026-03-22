@@ -1,0 +1,91 @@
+<template>
+    <div class="step-builder-root">
+
+        <!-- Header: icon + label -->
+        <div class="step-builder-header">
+            <span class="step-icon">{nodeIcon}</span>
+            <span class="step-label">{nodeLabel}</span>
+        </div>
+
+        <!-- AI_INFERENCE: tabbed wizard -->
+        <template if:true={isAiInference}>
+            <lightning-tabset>
+                <lightning-tab label="Model" value="model">
+                    <div class="tab-body">
+                        <lightning-combobox
+                            label="AI Provider"
+                            value={localData.providerDeveloperName}
+                            options={providerOptions}
+                            placeholder="Select provider..."
+                            data-field="providerDeveloperName"
+                            onchange={handleFieldChange}>
+                        </lightning-combobox>
+
+                        <lightning-input
+                            label="Model Override"
+                            value={localData.modelOverride}
+                            placeholder="Use provider default"
+                            data-field="modelOverride"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+
+                        <lightning-input
+                            type="number"
+                            label="Temperature"
+                            value={localData.temperature}
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            placeholder="e.g. 0.7"
+                            data-field="temperature"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+
+                        <lightning-input
+                            type="number"
+                            label="Max Tokens"
+                            value={localData.maxTokens}
+                            min="1"
+                            placeholder="e.g. 4096"
+                            data-field="maxTokens"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+                    </div>
+                </lightning-tab>
+
+                <lightning-tab label="Prompt" value="prompt">
+                    <div class="tab-body">
+                        <p class="prompt-tab-label">System Prompt</p>
+                        <c-ai-prompt-builder
+                            onpromptchange={handleSystemPromptChange}
+                            class="prompt-builder-child">
+                        </c-ai-prompt-builder>
+
+                        <p class="prompt-tab-label slds-m-top_medium">User Prompt</p>
+                        <c-ai-prompt-builder
+                            onpromptchange={handleUserPromptChange}
+                            class="prompt-builder-child">
+                        </c-ai-prompt-builder>
+                    </div>
+                </lightning-tab>
+            </lightning-tabset>
+        </template>
+
+        <!-- Non-AI step types: delegate message -->
+        <template if:false={isAiInference}>
+            <div class="delegate-message">
+                <p>Use the Properties Panel to configure this step type.</p>
+            </div>
+        </template>
+
+        <!-- Apply button (always shown) -->
+        <div class="step-builder-footer">
+            <lightning-button
+                label="Apply"
+                variant="brand"
+                onclick={handleApply}>
+            </lightning-button>
+        </div>
+
+    </div>
+</template>

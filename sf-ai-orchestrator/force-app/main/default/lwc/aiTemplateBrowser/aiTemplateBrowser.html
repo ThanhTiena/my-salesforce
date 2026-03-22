@@ -1,0 +1,93 @@
+<template>
+    <div class="template-browser">
+        <div class="page-header">
+            <h1 class="slds-text-heading_large">Workflow Templates</h1>
+        </div>
+
+        <!-- Loading state -->
+        <template if:true={isLoading}>
+            <div class="loading-container">
+                <lightning-spinner alternative-text="Loading templates..." size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <!-- Empty state -->
+        <template if:true={isEmpty}>
+            <div class="empty-state">
+                <lightning-icon icon-name="utility:layers" size="large" class="empty-icon"></lightning-icon>
+                <p class="slds-text-body_regular slds-m-top_small">
+                    No templates available. Create a workflow and mark it as a template.
+                </p>
+            </div>
+        </template>
+
+        <!-- Template cards grid -->
+        <template if:true={hasTemplates}>
+            <div class="template-grid">
+                <template for:each={templates} for:item="tmpl">
+                    <div key={tmpl.Id} class="template-card">
+                        <div class="card-body">
+                            <h2 class="slds-text-heading_small card-title">{tmpl.Name}</h2>
+                            <p class="slds-text-body_small card-description">
+                                <template if:true={tmpl.Description__c}>
+                                    {tmpl.Description__c}
+                                </template>
+                                <template if:false={tmpl.Description__c}>
+                                    <span class="no-description">No description</span>
+                                </template>
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <lightning-button
+                                label="Use Template"
+                                variant="brand"
+                                data-id={tmpl.Id}
+                                onclick={handleUseTemplate}>
+                            </lightning-button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- Clone modal -->
+        <template if:true={showModal}>
+            <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
+                <div class="modal-container">
+                    <div class="modal-header">
+                        <h2 id="modal-heading" class="slds-text-heading_medium">Create from Template</h2>
+                    </div>
+                    <div class="modal-body">
+                        <lightning-input
+                            label="Workflow Name"
+                            value={newWorkflowName}
+                            onchange={handleNameChange}
+                            placeholder="Enter a name for the new workflow"
+                            required>
+                        </lightning-input>
+                    </div>
+                    <div class="modal-footer">
+                        <lightning-button
+                            label="Cancel"
+                            variant="neutral"
+                            onclick={handleModalClose}
+                            disabled={isCloning}>
+                        </lightning-button>
+                        <lightning-button
+                            label="Create Workflow"
+                            variant="brand"
+                            disabled={isCloneDisabled}
+                            onclick={handleClone}>
+                            <template if:true={isCloning}>
+                                <lightning-spinner
+                                    alternative-text="Creating..."
+                                    size="small">
+                                </lightning-spinner>
+                            </template>
+                        </lightning-button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

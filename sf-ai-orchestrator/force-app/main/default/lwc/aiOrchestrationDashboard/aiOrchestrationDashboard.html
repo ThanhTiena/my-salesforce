@@ -1,0 +1,15 @@
+<template>
+    <div class="dashboard-root">
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">AI Orchestration Dashboard</h1>
+        </div>
+        <lightning-tabset>
+            <lightning-tab label="Executions" value="executions">
+                <c-ai-execution-monitor></c-ai-execution-monitor>
+            </lightning-tab>
+            <lightning-tab label="Providers" value="providers">
+                <c-ai-provider-setup></c-ai-provider-setup>
+            </lightning-tab>
+        </lightning-tabset>
+    </div>
+</template>
