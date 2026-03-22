@@ -103,8 +103,8 @@ jobs:
   build-assets:
     name: Build Static Resource
     needs: detect-changes
-    # Build if static-resource-src changed OR if LWC changed (imports the bundle)
-    if: needs.detect-changes.outputs.has_static_src == 'true' || needs.detect-changes.outputs.has_lwc == 'true'
+    # Only build when static-resource-src/ itself changes
+    if: needs.detect-changes.outputs.has_static_src == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
