@@ -178,7 +178,7 @@ jobs:
               --source-dir sf-ai-orchestrator/force-app \
               --target-org validation-org \
               --test-level RunSpecifiedTests \
-              $TEST_FLAGS \
+              --tests $TESTS \
               --api-version ${{ env.SF_API_VERSION }} \
               --dry-run \
               --wait 30
