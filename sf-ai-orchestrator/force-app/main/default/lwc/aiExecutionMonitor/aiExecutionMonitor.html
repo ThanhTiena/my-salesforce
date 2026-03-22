@@ -149,13 +149,13 @@
                                 </thead>
                                 <tbody>
                                     <template for:each={stepExecutions} for:item="s">
-                                        <tr key={s.Id}>
-                                            <td>{s.AI_Step__r.Name}</td>
-                                            <td>{s.AI_Step__r.Step_Type__c}</td>
-                                            <td>{s.Status__c}</td>
-                                            <td>{s.Provider_Used__c}</td>
-                                            <td>{s.Tokens_Used__c}</td>
-                                            <td>{s.Duration_Ms__c}</td>
+                                        <tr key={s.id}>
+                                            <td>{s.stepName}</td>
+                                            <td>{s.stepType}</td>
+                                            <td>{s.status}</td>
+                                            <td>{s.providerUsed}</td>
+                                            <td>{s.tokensUsed}</td>
+                                            <td>{s.durationMs}</td>
                                         </tr>
                                     </template>
                                 </tbody>
