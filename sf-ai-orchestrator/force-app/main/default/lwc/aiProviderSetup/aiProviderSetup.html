@@ -1,0 +1,61 @@
+<template>
+    <lightning-card title="AI Provider Configuration" icon-name="utility:settings">
+        <div class="slds-m-around_medium">
+            <template if:true={isLoading}>
+                <lightning-spinner alternative-text="Loading providers" size="small"></lightning-spinner>
+            </template>
+
+            <template if:false={isLoading}>
+                <template if:true={hasProviders}>
+                    <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th>Provider</th>
+                                <th>Type</th>
+                                <th>Default Model</th>
+                                <th>Named Credential</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={providers} for:item="p">
+                                <tr key={p.value}>
+                                    <td>{p.label}</td>
+                                    <td>{p.providerType}</td>
+                                    <td>{p.defaultModel}</td>
+                                    <td>{p.namedCredential}</td>
+                                    <td>
+                                        <lightning-badge
+                                            label="Active"
+                                            class="badge-success">
+                                        </lightning-badge>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </template>
+
+                <template if:false={hasProviders}>
+                    <div class="slds-illustration slds-illustration_small">
+                        <p class="slds-text-body_regular slds-text-color_weak">
+                            No active AI providers found. Configure AI_Provider__mdt records in Setup.
+                        </p>
+                        <p class="slds-m-top_small">
+                            <a href="/lightning/setup/CustomMetadata/home" target="_blank">
+                                Open Custom Metadata in Setup
+                            </a>
+                        </p>
+                    </div>
+                </template>
+            </template>
+
+            <div class="slds-m-top_medium">
+                <p class="slds-text-body_small slds-text-color_weak">
+                    API keys are stored in Named Credentials — never in these records.
+                    To add a provider, create a new AI_Provider__mdt record in Setup.
+                </p>
+            </div>
+        </div>
+    </lightning-card>
+</template>

@@ -1,105 +1,171 @@
 <template>
-    <lightning-card title="AI Execution Monitor" icon-name="standard:bot">
-        <div class="slds-p-around_medium">
+    <div class="monitor-root">
 
-            <!-- Filter bar -->
-            <div class="slds-grid slds-gutters slds-m-bottom_medium">
-                <div class="slds-col slds-size_1-of-3">
-                    <lightning-combobox
-                        label="Status Filter"
-                        value={statusFilter}
-                        options={statusOptions}
-                        onchange={handleStatusFilter}>
-                    </lightning-combobox>
-                </div>
-                <div class="slds-col slds-size_1-of-3">
-                    <lightning-input
-                        type="search"
-                        label="Search Workflow"
-                        value={searchTerm}
-                        onchange={handleSearch}>
-                    </lightning-input>
-                </div>
-                <div class="slds-col slds-size_1-of-3 slds-align-bottom">
-                    <lightning-button
-                        label="Refresh"
-                        icon-name="utility:refresh"
-                        onclick={handleRefresh}>
-                    </lightning-button>
-                </div>
+        <!-- Header -->
+        <div class="monitor-header">
+            <h1 class="monitor-title">AI Workflow Monitor</h1>
+            <div class="monitor-header-actions">
+                <lightning-combobox
+                    label="Period"
+                    value={daysBack}
+                    options={periodOptions}
+                    onchange={handlePeriodChange}
+                    class="period-select">
+                </lightning-combobox>
+                <lightning-button
+                    label="Refresh"
+                    icon-name="utility:refresh"
+                    onclick={handleRefresh}>
+                </lightning-button>
             </div>
-
-            <!-- Loading -->
-            <template if:true={isLoading}>
-                <lightning-spinner alternative-text="Loading executions..." size="medium"></lightning-spinner>
-            </template>
-
-            <!-- Error -->
-            <template if:true={error}>
-                <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
-                    <span>{error}</span>
-                </div>
-            </template>
-
-            <!-- Data table -->
-            <template if:false={isLoading}>
-                <lightning-datatable
-                    key-field="Id"
-                    data={executions}
-                    columns={columns}
-                    hide-checkbox-column
-                    onrowaction={handleRowAction}>
-                </lightning-datatable>
-
-                <template if:true={isEmpty}>
-                    <div class="slds-illustration slds-illustration_small slds-m-top_large">
-                        <p class="slds-text-color_weak slds-text-align_center">No executions found.</p>
-                    </div>
-                </template>
-            </template>
-
         </div>
 
-        <!-- Execution Detail Modal -->
-        <template if:true={showDetail}>
-            <section role="dialog" class="slds-modal slds-fade-in-open">
+        <!-- Metric tiles -->
+        <div class="metric-grid">
+            <div class="metric-tile">
+                <span class="metric-value">{metrics.totalExecutions}</span>
+                <span class="metric-label">Total Runs</span>
+            </div>
+            <div class="metric-tile metric-tile--success">
+                <span class="metric-value">{metrics.successCount}</span>
+                <span class="metric-label">Completed</span>
+            </div>
+            <div class="metric-tile metric-tile--danger">
+                <span class="metric-value">{metrics.failedCount}</span>
+                <span class="metric-label">Failed</span>
+            </div>
+            <div class="metric-tile metric-tile--info">
+                <span class="metric-value">{metrics.runningCount}</span>
+                <span class="metric-label">Running</span>
+            </div>
+            <div class="metric-tile">
+                <span class="metric-value">{successRateDisplay}</span>
+                <span class="metric-label">Success Rate</span>
+            </div>
+            <div class="metric-tile">
+                <span class="metric-value">{totalTokensDisplay}</span>
+                <span class="metric-label">Tokens Used</span>
+            </div>
+        </div>
+
+        <!-- Recent executions table -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Recent Executions</h2>
+                <lightning-spinner if:true={isLoading} size="small" alternative-text="Loading"></lightning-spinner>
+            </div>
+
+            <template if:true={hasExecutions}>
+                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped monitor-table">
+                    <thead>
+                        <tr>
+                            <th>Workflow</th>
+                            <th>Status</th>
+                            <th>Started</th>
+                            <th>Duration</th>
+                            <th>Tokens</th>
+                            <th>Retries</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={executions} for:item="ex">
+                            <tr key={ex.id}>
+                                <td>{ex.workflowName}</td>
+                                <td>
+                                    <lightning-badge
+                                        label={ex.status}
+                                        class={ex.statusClass}>
+                                    </lightning-badge>
+                                </td>
+                                <td>{ex.startedAtDisplay}</td>
+                                <td>{ex.durationDisplay}</td>
+                                <td>{ex.totalTokens}</td>
+                                <td>{ex.retryCount}</td>
+                                <td>
+                                    <lightning-button-icon
+                                        icon-name="utility:preview"
+                                        alternative-text="View steps"
+                                        size="small"
+                                        data-id={ex.id}
+                                        onclick={handleViewSteps}>
+                                    </lightning-button-icon>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+
+            <template if:false={hasExecutions}>
+                <div class="empty-state">
+                    <p>No executions found for the selected period.</p>
+                    <p class="empty-hint">Run a workflow from the AI Workflow Builder tab to see results here.</p>
+                </div>
+            </template>
+        </div>
+
+        <!-- Token usage by provider -->
+        <template if:true={hasTokenData}>
+            <div class="section-card">
+                <h2 class="section-title">Token Usage by Provider</h2>
+                <div class="token-grid">
+                    <template for:each={tokenUsage} for:item="t">
+                        <div key={t.providerName} class="token-tile">
+                            <span class="token-provider">{t.providerName}</span>
+                            <span class="token-count">{t.totalTokens}</span>
+                            <span class="token-label">tokens / {t.executionCount} steps</span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Step drill-down modal -->
+        <template if:true={showStepModal}>
+            <section class="slds-modal slds-fade-in-open">
                 <div class="slds-modal__container">
                     <header class="slds-modal__header">
-                        <h2 class="slds-modal__title">Execution Detail — {selectedExecution.Name}</h2>
-                        <button class="slds-button slds-button_icon slds-modal__close" onclick={closeDetail}>
-                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
-                        </button>
+                        <h2 class="slds-modal__title">Step Executions</h2>
+                        <lightning-button-icon
+                            icon-name="utility:close"
+                            alternative-text="Close"
+                            onclick={handleCloseModal}
+                            class="slds-modal__close">
+                        </lightning-button-icon>
                     </header>
                     <div class="slds-modal__content slds-p-around_medium">
-                        <dl class="slds-list_horizontal slds-wrap">
-                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Status</dt>
-                            <dd class="slds-item_detail">{selectedExecution.Status__c}</dd>
-                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Started</dt>
-                            <dd class="slds-item_detail">{selectedExecution.Started_At__c}</dd>
-                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Duration</dt>
-                            <dd class="slds-item_detail">{selectedExecution.Duration_Seconds__c}s</dd>
-                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Total Tokens</dt>
-                            <dd class="slds-item_detail">{selectedExecution.Total_Tokens_Used__c}</dd>
-                            <dt class="slds-item_label slds-text-color_weak slds-truncate">Error</dt>
-                            <dd class="slds-item_detail">{selectedExecution.Error_Message__c}</dd>
-                        </dl>
-
-                        <!-- Step executions sub-table -->
-                        <h3 class="slds-text-heading_small slds-m-top_medium">Step Executions</h3>
-                        <lightning-datatable
-                            key-field="Id"
-                            data={selectedStepExecutions}
-                            columns={stepColumns}
-                            hide-checkbox-column>
-                        </lightning-datatable>
+                        <template if:true={hasStepData}>
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Step</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Provider</th>
+                                        <th>Tokens</th>
+                                        <th>Duration (ms)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={stepExecutions} for:item="s">
+                                        <tr key={s.Id}>
+                                            <td>{s.AI_Step__r.Name}</td>
+                                            <td>{s.AI_Step__r.Step_Type__c}</td>
+                                            <td>{s.Status__c}</td>
+                                            <td>{s.Provider_Used__c}</td>
+                                            <td>{s.Tokens_Used__c}</td>
+                                            <td>{s.Duration_Ms__c}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
                     </div>
-                    <footer class="slds-modal__footer">
-                        <lightning-button label="Close" onclick={closeDetail}></lightning-button>
-                    </footer>
                 </div>
             </section>
             <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
 
-    </lightning-card>
+    </div>
 </template>

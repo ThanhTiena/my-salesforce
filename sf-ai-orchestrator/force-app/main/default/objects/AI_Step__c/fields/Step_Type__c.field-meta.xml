@@ -11,44 +11,107 @@
         <valueSetDefinition>
             <sorted>false</sorted>
             <value>
-                <fullName>INFERENCE</fullName>
+                <fullName>AI_INFERENCE</fullName>
                 <default>true</default>
                 <label>AI Inference</label>
             </value>
             <value>
+                <fullName>DECISION</fullName>
+                <default>false</default>
+                <label>Decision</label>
+            </value>
+            <value>
+                <fullName>HTTP_CALLOUT</fullName>
+                <default>false</default>
+                <label>HTTP Callout</label>
+            </value>
+            <value>
+                <fullName>APEX_ACTION</fullName>
+                <default>false</default>
+                <label>Apex Action</label>
+            </value>
+            <value>
+                <fullName>FLOW_LAUNCH</fullName>
+                <default>false</default>
+                <label>Launch Flow</label>
+            </value>
+            <value>
+                <fullName>WAIT</fullName>
+                <default>false</default>
+                <label>Wait</label>
+            </value>
+            <value>
+                <fullName>LOOP</fullName>
+                <default>false</default>
+                <label>Loop</label>
+            </value>
+            <value>
+                <fullName>SUBFLOW</fullName>
+                <default>false</default>
+                <label>Sub-Workflow</label>
+            </value>
+            <value>
+                <fullName>NOTIFICATION</fullName>
+                <default>false</default>
+                <label>Notification</label>
+            </value>
+            <value>
+                <fullName>START</fullName>
+                <default>false</default>
+                <label>Start</label>
+            </value>
+            <value>
+                <fullName>END</fullName>
+                <default>false</default>
+                <label>End</label>
+            </value>
+            <value>
+                <fullName>INFERENCE</fullName>
+                <default>false</default>
+                <label>AI Inference (Legacy)</label>
+                <isActive>false</isActive>
+            </value>
+            <value>
                 <fullName>CLASSIFICATION</fullName>
                 <default>false</default>
-                <label>Classification</label>
+                <label>Classification (Legacy)</label>
+                <isActive>false</isActive>
             </value>
             <value>
                 <fullName>SUMMARIZATION</fullName>
                 <default>false</default>
-                <label>Summarization</label>
+                <label>Summarization (Legacy)</label>
+                <isActive>false</isActive>
             </value>
             <value>
                 <fullName>SENTIMENT</fullName>
                 <default>false</default>
-                <label>Sentiment Analysis</label>
+                <label>Sentiment Analysis (Legacy)</label>
+                <isActive>false</isActive>
             </value>
             <value>
                 <fullName>EXTRACTION</fullName>
                 <default>false</default>
-                <label>Data Extraction</label>
+                <label>Data Extraction (Legacy)</label>
+                <isActive>false</isActive>
             </value>
             <value>
                 <fullName>TRANSLATION</fullName>
                 <default>false</default>
-                <label>Translation</label>
+                <label>Translation (Legacy)</label>
+                <isActive>false</isActive>
             </value>
             <value>
                 <fullName>EMBEDDING</fullName>
                 <default>false</default>
-                <label>Embedding</label>
+                <label>Embedding (Legacy)</label>
+                <isActive>false</isActive>
             </value>
             <value>
                 <fullName>CUSTOM</fullName>
                 <default>false</default>
-                <label>Custom</label>
+                <label>Custom (Legacy)</label>
+                <isActive>false</isActive>
             </value>
         </valueSetDefinition>
     </valueSet>
