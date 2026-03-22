@@ -170,12 +170,15 @@ jobs:
         id: validate
         run: |
           if [ "${{ needs.detect-changes.outputs.has_apex }}" = "true" ]; then
-            TESTS=$(find sf-ai-orchestrator/force-app -name '*Test.cls' | xargs -I{} basename {} .cls | paste -sd ',')
+            TEST_FLAGS=$(find sf-ai-orchestrator/force-app -name '*Test.cls' \
+              | xargs -I{} basename {} .cls \
+              | sed 's/^/--tests /' \
+              | tr '\n' ' ')
             sf project deploy start \
               --source-dir sf-ai-orchestrator/force-app \
               --target-org validation-org \
               --test-level RunSpecifiedTests \
-              --tests "$TESTS" \
+              $TEST_FLAGS \
               --api-version ${{ env.SF_API_VERSION }} \
               --dry-run \
               --wait 30
