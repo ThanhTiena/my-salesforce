@@ -1,42 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xmlns:xsd="http://www.w3.org/2001/XMLSchema">
     <label>Default</label>
     <protected>false</protected>
     <values>
+        <!-- Must match the API Name of the Named Credential: AI_MongoDB_Atlas -->
         <field>Named_Credential_API_Name__c</field>
         <value xsi:type="xsd:string">AI_MongoDB_Atlas</value>
     </values>
     <values>
-        <!-- Proxy base path — leave empty if your proxy root IS the action endpoint -->
+        <!-- Not used by the Vercel proxy API — paths are fixed in MongoDBLogService.
+             Leave empty. -->
         <field>App_Id__c</field>
         <value xsi:type="xsd:string"></value>
     </values>
     <values>
+        <!-- Not used by the Vercel proxy API — kept for schema compatibility. -->
         <field>Data_Source__c</field>
-        <value xsi:type="xsd:string">Cluster0</value>
+        <value xsi:type="xsd:string"></value>
     </values>
     <values>
+        <!-- Not used by the Vercel proxy API — set MONGODB_DB_NAME in Vercel env vars. -->
         <field>Database_Name__c</field>
-        <value xsi:type="xsd:string">sf_ai_orchestrator</value>
+        <value xsi:type="xsd:string"></value>
     </values>
     <values>
+        <!-- Not used by the Vercel proxy API — kept for schema compatibility. -->
         <field>Executions_Collection__c</field>
-        <value xsi:type="xsd:string">ai_executions</value>
+        <value xsi:type="xsd:string"></value>
     </values>
     <values>
+        <!-- Your Salesforce Org ID (18 chars). Used to scope log/record writes.
+             Find it in: Setup → Company Information → Salesforce.com Organization ID -->
         <field>Org_Id__c</field>
         <value xsi:type="xsd:string">YOUR_SF_ORG_ID</value>
     </values>
     <values>
+        <!-- Set to true once the Named Credential and Vercel deployment are configured.
+             While false, all MongoDBLogService methods silently no-op. -->
         <field>Is_Active__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <!-- HTTP timeout in seconds for Vercel API calls. -->
         <field>Timeout_Seconds__c</field>
         <value xsi:type="xsd:double">30</value>
     </values>
     <values>
+        <!-- ASYNC_BEST_EFFORT: failures are logged but never thrown (safe for production).
+             SYNC_REQUIRED: failures throw MongoDBException (use during testing/debugging). -->
         <field>Write_Mode__c</field>
         <value xsi:type="xsd:string">ASYNC_BEST_EFFORT</value>
     </values>
