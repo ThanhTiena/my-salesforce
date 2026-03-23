@@ -10,25 +10,24 @@
         <value xsi:type="xsd:string">AI_MongoDB_Atlas</value>
     </values>
     <values>
-        <!-- Not used by the Vercel proxy API — paths are fixed in MongoDBLogService.
-             Leave empty. -->
+        <!-- Base path of the Vercel proxy (e.g. /mongo or leave as /api if paths are absolute). -->
         <field>App_Id__c</field>
-        <value xsi:type="xsd:string"></value>
+        <value xsi:type="xsd:string">/api</value>
     </values>
     <values>
-        <!-- Not used by the Vercel proxy API — kept for schema compatibility. -->
+        <!-- MongoDB Atlas cluster name. Set to match your Atlas cluster (e.g. Cluster0). -->
         <field>Data_Source__c</field>
-        <value xsi:type="xsd:string"></value>
+        <value xsi:type="xsd:string">Cluster0</value>
     </values>
     <values>
-        <!-- Not used by the Vercel proxy API — set MONGODB_DB_NAME in Vercel env vars. -->
+        <!-- MongoDB database name. Must match MONGODB_DB_NAME in your Vercel env vars. -->
         <field>Database_Name__c</field>
-        <value xsi:type="xsd:string"></value>
+        <value xsi:type="xsd:string">sf_ai_orchestrator</value>
     </values>
     <values>
-        <!-- Not used by the Vercel proxy API — kept for schema compatibility. -->
+        <!-- MongoDB collection for execution logs. Must match your Vercel API config. -->
         <field>Executions_Collection__c</field>
-        <value xsi:type="xsd:string"></value>
+        <value xsi:type="xsd:string">ai_executions</value>
     </values>
     <values>
         <!-- Your Salesforce Org ID (18 chars). Used to scope log/record writes.

@@ -70,7 +70,7 @@
                     </thead>
                     <tbody>
                         <template for:each={executions} for:item="ex">
-                            <tr key={ex.id}>
+                            <tr key={ex.execId}>
                                 <td>{ex.workflowName}</td>
                                 <td>
                                     <lightning-badge
@@ -87,7 +87,7 @@
                                         icon-name="utility:preview"
                                         alternative-text="View steps"
                                         size="small"
-                                        data-id={ex.id}
+                                        data-id={ex.execId}
                                         onclick={handleViewSteps}>
                                     </lightning-button-icon>
                                 </td>
@@ -149,7 +149,7 @@
                                 </thead>
                                 <tbody>
                                     <template for:each={stepExecutions} for:item="s">
-                                        <tr key={s.id}>
+                                        <tr key={s.stepExecId}>
                                             <td>{s.stepName}</td>
                                             <td>{s.stepType}</td>
                                             <td>{s.status}</td>

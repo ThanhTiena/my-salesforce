@@ -18,7 +18,7 @@ public with sharing class AIExecutionMonitorController {
     // ─── DTOs ────────────────────────────────────────────────────────────────
 
     public class ExecutionSummary {
-        @AuraEnabled public String   id;
+        @AuraEnabled public String   execId;
         @AuraEnabled public String   workflowName;
         @AuraEnabled public String   status;
         @AuraEnabled public String   initiatedBy;
@@ -48,7 +48,7 @@ public with sharing class AIExecutionMonitorController {
     }
 
     public class StepExecutionSummary {
-        @AuraEnabled public String  id;
+        @AuraEnabled public String  stepExecId;
         @AuraEnabled public String  stepName;
         @AuraEnabled public String  stepType;
         @AuraEnabled public String  status;
@@ -143,7 +143,7 @@ public with sharing class AIExecutionMonitorController {
             List<ExecutionSummary> out = new List<ExecutionSummary>();
             for (MongoDBLogService.ExecutionSummary r : mongoRows) {
                 ExecutionSummary s  = new ExecutionSummary();
-                s.id               = r.sfExecutionId;
+                s.execId           = r.sfExecutionId;
                 s.workflowName     = r.workflowName;
                 s.status           = r.status;
                 s.initiatedBy      = r.initiatedBy;
@@ -174,7 +174,7 @@ public with sharing class AIExecutionMonitorController {
         List<ExecutionSummary> out = new List<ExecutionSummary>();
         for (AI_Execution__c r : recs) {
             ExecutionSummary s  = new ExecutionSummary();
-            s.id               = r.Id;
+            s.execId           = r.Id;
             s.workflowName     = r.AI_Workflow__r?.Name;
             s.status           = r.Status__c;
             s.initiatedBy      = r.Initiated_By__c;
@@ -250,7 +250,7 @@ public with sharing class AIExecutionMonitorController {
             List<StepExecutionSummary> out = new List<StepExecutionSummary>();
             for (MongoDBLogService.StepSummary s : steps) {
                 StepExecutionSummary ss = new StepExecutionSummary();
-                ss.id           = s.id;
+                ss.stepExecId   = s.sfStepExecutionId;
                 ss.stepName     = s.stepName;
                 ss.stepType     = s.stepType;
                 ss.status       = s.status;
@@ -280,7 +280,7 @@ public with sharing class AIExecutionMonitorController {
         List<StepExecutionSummary> out = new List<StepExecutionSummary>();
         for (AI_Step_Execution__c r : recs) {
             StepExecutionSummary ss = new StepExecutionSummary();
-            ss.id           = r.Id;
+            ss.stepExecId   = r.Id;
             ss.stepName     = r.AI_Step__r?.Name;
             ss.stepType     = r.AI_Step__r?.Step_Type__c;
             ss.status       = r.Status__c;
