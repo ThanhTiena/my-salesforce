@@ -45,7 +45,8 @@ public with sharing class WorkflowService {
         List<AI_Workflow__c> workflows = [
             SELECT Id, Name, Description__c, Trigger_Object__c, Trigger_Condition__c,
                    Is_Active__c, Version__c, Total_Executions__c, Last_Executed__c,
-                   Max_Retries__c, Retry_Delay_Seconds__c, Notification_Email__c
+                   Max_Retries__c, Retry_Delay_Seconds__c, Notification_Email__c,
+                   Canvas_JSON__c
             FROM AI_Workflow__c
             WHERE Id = :workflowId
             LIMIT 1
@@ -106,7 +107,8 @@ public with sharing class WorkflowService {
         AISecurityUtil.assertUpdatable(AI_Workflow__c.SObjectType);
         AISecurityUtil.assertFieldsWritable(AI_Workflow__c.SObjectType,
             new List<String>{ 'Name', 'Description__c', 'Trigger_Object__c',
-                              'Max_Retries__c', 'Retry_Delay_Seconds__c', 'Notification_Email__c' });
+                              'Max_Retries__c', 'Retry_Delay_Seconds__c', 'Notification_Email__c',
+                              'Canvas_JSON__c' });
 
         if (workflow == null || workflow.Id == null) {
             throw new AuraHandledException('Workflow Id is required for save.');

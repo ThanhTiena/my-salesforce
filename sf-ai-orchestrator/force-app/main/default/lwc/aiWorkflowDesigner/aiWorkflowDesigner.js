@@ -121,7 +121,7 @@ export default class AiWorkflowDesigner extends LightningElement {
             const data      = await getWorkflow({ workflowId: this.workflowId });
             this.workflow   = data.workflow;
             this.steps      = data.steps || [];
-            this._renderStepsOnCanvas(this.steps);
+            this._renderStepsOnCanvas(this.steps, this.workflow?.Canvas_JSON__c);
         } catch (e) {
             this._showToast('Load Error', e.body?.message ?? e.message, 'error');
         } finally {
@@ -130,12 +130,24 @@ export default class AiWorkflowDesigner extends LightningElement {
         }
     }
 
-    _renderStepsOnCanvas(steps) {
-        if (!this._drawflow || !steps.length) return;
+    _renderStepsOnCanvas(steps, canvasJson) {
+        if (!this._drawflow) return;
         this._drawflow.clear();
 
-        // Lay out nodes in a simple vertical chain; positions stored in step Name suffix
-        // In a full implementation, position would be stored in a separate Canvas_JSON field.
+        // If we have a saved canvas layout, restore it directly (preserves node positions + connections)
+        if (canvasJson) {
+            try {
+                const saved = JSON.parse(canvasJson);
+                this._drawflow.import(saved);
+                return;
+            } catch (e) {
+                // Fallback to linear layout if JSON is malformed
+            }
+        }
+
+        if (!steps.length) return;
+
+        // Default linear layout for workflows that have never been saved with canvas JSON
         let x = 200;
         let y = 100;
         const spacing = 150;
@@ -143,9 +155,9 @@ export default class AiWorkflowDesigner extends LightningElement {
         steps.forEach((step, idx) => {
             const nodeHtml = this._buildNodeHtml(step);
             this._drawflow.addNode(
-                step.Id,           // name (unique key)
-                1,                 // inputs
-                step.Step_Type__c === 'START' ? 0 : (step.Step_Type__c === 'END' ? 0 : 2), // outputs: success + failure
+                step.Id,
+                1,
+                step.Step_Type__c === 'START' ? 0 : (step.Step_Type__c === 'END' ? 0 : 2),
                 x, y + (idx * spacing),
                 NODE_CLASSES[step.Step_Type__c] || 'node-default',
                 { stepId: step.Id, stepType: step.Step_Type__c },
@@ -261,8 +273,12 @@ export default class AiWorkflowDesigner extends LightningElement {
                 Condition__c                  : nodeObj.data?.condition,
             }));
 
-            await saveWorkflow({ workflow: this.workflow });
+            // Persist canvas layout so node positions + connections are restored on next load
+            const canvasJson = JSON.stringify(this._drawflow.export());
+            const workflowToSave = { ...this.workflow, Canvas_JSON__c: canvasJson };
+            await saveWorkflow({ workflow: workflowToSave });
             await saveSteps({ workflowId: this.workflowId, steps: stepsToSave });
+            this.workflow = { ...this.workflow, Canvas_JSON__c: canvasJson };
 
             this.isDirty = false;
             this._showToast('Saved', 'Workflow saved successfully.', 'success');
