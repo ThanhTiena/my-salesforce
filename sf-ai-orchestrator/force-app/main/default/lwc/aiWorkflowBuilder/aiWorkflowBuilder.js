@@ -17,6 +17,7 @@ export default class AiWorkflowBuilder extends LightningElement {
     @track showCloneModal    = false;  // shows the "name your copy" dialog
     @track isCreating        = false;
     @track isCloning         = false;
+    @track activeExecutionId = null;   // non-null while progress panel is visible
 
     @track newWorkflowName   = '';
     @track newWorkflowDesc   = '';
@@ -207,11 +208,15 @@ export default class AiWorkflowBuilder extends LightningElement {
 
     handleExecutionStarted(event) {
         const execId = event.detail?.execId;
-        this._showToast(
-            'Workflow Running',
-            execId ? 'Execution ' + execId + ' queued.' : 'Execution queued.',
-            'success'
-        );
+        if (execId) {
+            this.activeExecutionId = execId;
+        } else {
+            this._showToast('Workflow Running', 'Execution queued.', 'success');
+        }
+    }
+
+    handleExecutionPanelClose() {
+        this.activeExecutionId = null;
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

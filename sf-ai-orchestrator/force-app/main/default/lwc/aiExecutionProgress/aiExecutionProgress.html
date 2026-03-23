@@ -1,0 +1,166 @@
+<template>
+    <div class="progress-root">
+
+        <!-- Header -->
+        <div class="progress-header">
+            <div class="header-left">
+                <span class="workflow-name">{workflowName}</span>
+                <span class={statusBadgeClass}>{execution.status}</span>
+                <template if:true={isRunning}>
+                    <span class="pulse-dot"></span>
+                    <span class="live-label">Live</span>
+                </template>
+            </div>
+            <div class="header-right">
+                <span class="meta-item" if:true={durationDisplay}>
+                    <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
+                    {durationDisplay}
+                </span>
+                <span class="meta-item" if:true={execution.totalTokens}>
+                    <lightning-icon icon-name="utility:Einstein" size="xx-small"></lightning-icon>
+                    {tokenDisplay}
+                </span>
+                <span class="meta-item" if:true={execution.triggerRecordId}>
+                    <lightning-icon icon-name="utility:record" size="xx-small"></lightning-icon>
+                    {execution.triggerRecordId}
+                </span>
+                <lightning-button-icon
+                    icon-name="utility:refresh"
+                    alternative-text="Refresh"
+                    size="small"
+                    onclick={handleRefresh}>
+                </lightning-button-icon>
+                <lightning-button-icon
+                    if:true={onclose}
+                    icon-name="utility:close"
+                    alternative-text="Close"
+                    size="small"
+                    onclick={handleClose}>
+                </lightning-button-icon>
+            </div>
+        </div>
+
+        <!-- Error banner -->
+        <template if:true={execution.errorMessage}>
+            <div class="error-banner">
+                <lightning-icon icon-name="utility:error" size="x-small" variant="error"></lightning-icon>
+                <span>{execution.errorMessage}</span>
+            </div>
+        </template>
+
+        <!-- Loading state -->
+        <template if:true={isLoading}>
+            <div class="loading-state">
+                <lightning-spinner alternative-text="Loading execution..." size="small"></lightning-spinner>
+            </div>
+        </template>
+
+        <!-- Step pipeline (horizontal scroll) -->
+        <template if:false={isLoading}>
+            <div class="pipeline-scroll">
+                <div class="pipeline">
+                    <template for:each={steps} for:item="step">
+                        <div key={step.stepId} class="pipeline-item">
+                            <!-- Connector line (not before first step) -->
+                            <template if:true={step.showConnector}>
+                                <div class={step.connectorClass}></div>
+                            </template>
+
+                            <!-- Node -->
+                            <div
+                                class={step.nodeClass}
+                                data-step-id={step.stepId}
+                                onclick={handleStepClick}>
+
+                                <!-- Status ring animation -->
+                                <div class={step.ringClass}>
+                                    <span class="step-icon">{step.icon}</span>
+                                </div>
+
+                                <span class="step-label">{step.stepName}</span>
+
+                                <!-- Duration badge -->
+                                <template if:true={step.durationMs}>
+                                    <span class="step-duration">{step.durationDisplay}</span>
+                                </template>
+
+                                <!-- Token badge for AI steps -->
+                                <template if:true={step.tokensUsed}>
+                                    <span class="step-tokens">{step.tokensUsed}t</span>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Step detail drawer -->
+        <template if:true={selectedStep}>
+            <div class="step-drawer">
+                <div class="drawer-header">
+                    <span class="drawer-title">
+                        {selectedStep.icon} {selectedStep.stepName}
+                    </span>
+                    <span class={selectedStep.statusBadgeClass}>{selectedStep.status}</span>
+                    <button class="drawer-close" onclick={handleCloseDrawer}>✕</button>
+                </div>
+
+                <div class="drawer-body">
+                    <!-- Meta row -->
+                    <div class="drawer-meta">
+                        <template if:true={selectedStep.providerUsed}>
+                            <span class="drawer-chip">Provider: {selectedStep.providerUsed}</span>
+                        </template>
+                        <template if:true={selectedStep.modelUsed}>
+                            <span class="drawer-chip">Model: {selectedStep.modelUsed}</span>
+                        </template>
+                        <template if:true={selectedStep.durationMs}>
+                            <span class="drawer-chip">{selectedStep.durationDisplay}</span>
+                        </template>
+                        <template if:true={selectedStep.tokensUsed}>
+                            <span class="drawer-chip">{selectedStep.tokensUsed} tokens</span>
+                        </template>
+                    </div>
+
+                    <!-- Error -->
+                    <template if:true={selectedStep.errorMessage}>
+                        <div class="drawer-section">
+                            <p class="drawer-section-title">Error</p>
+                            <pre class="drawer-pre drawer-pre--error">{selectedStep.errorMessage}</pre>
+                        </div>
+                    </template>
+
+                    <!-- Prompt sent -->
+                    <template if:true={selectedStep.promptSent}>
+                        <div class="drawer-section">
+                            <p class="drawer-section-title">Prompt Sent</p>
+                            <pre class="drawer-pre">{selectedStep.promptSent}</pre>
+                        </div>
+                    </template>
+
+                    <!-- Parsed output -->
+                    <template if:true={selectedStep.parsedOutput}>
+                        <div class="drawer-section">
+                            <p class="drawer-section-title">Output</p>
+                            <pre class="drawer-pre drawer-pre--output">{selectedStep.parsedOutput}</pre>
+                        </div>
+                    </template>
+
+                    <!-- Raw response (collapsed) -->
+                    <template if:true={selectedStep.rawResponse}>
+                        <div class="drawer-section">
+                            <button class="raw-toggle" onclick={handleToggleRaw}>
+                                {rawLabel}
+                            </button>
+                            <template if:true={showRaw}>
+                                <pre class="drawer-pre drawer-pre--raw">{selectedStep.rawResponse}</pre>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+    </div>
+</template>

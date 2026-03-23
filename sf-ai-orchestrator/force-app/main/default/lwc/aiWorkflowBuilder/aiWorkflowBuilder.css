@@ -12,7 +12,16 @@
     overflow: hidden;
 }
 
-/* ── Canvas drop zone (middle column, fills remaining space) ── */
+/* ── Canvas column (middle, fills remaining space, stacks canvas + progress) ── */
+.canvas-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* ── Canvas drop zone ── */
 .canvas-drop-zone {
     flex: 1;
     overflow: hidden;

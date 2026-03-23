@@ -295,6 +295,135 @@ public with sharing class AIExecutionMonitorController {
         return out;
     }
 
+    /**
+     * Returns the full execution progress for one execution:
+     * the ordered step definitions merged with their live step-execution statuses.
+     * Used by the aiExecutionProgress LWC for animated real-time polling.
+     * executionId = Salesforce AI_Execution__c Id.
+     */
+    @AuraEnabled(cacheable=false)
+    public static ExecutionProgress getExecutionProgress(String executionId) {
+        if (String.isBlank(executionId)) {
+            throw new AuraHandledException('executionId is required');
+        }
+
+        AISecurityUtil.assertReadable(AI_Execution__c.SObjectType);
+        AISecurityUtil.assertReadable(AI_Step__c.SObjectType);
+        AISecurityUtil.assertReadable(AI_Step_Execution__c.SObjectType);
+
+        Id sfExecId = (Id) executionId;
+
+        // Load execution header
+        AI_Execution__c exec = [
+            SELECT Id, Status__c, Started_At__c, Completed_At__c,
+                   Duration_Seconds__c, Error_Message__c, Retry_Count__c,
+                   Total_Tokens_Used__c, Trigger_Record_Id__c,
+                   AI_Workflow__c, AI_Workflow__r.Name, AI_Workflow__r.Canvas_JSON__c
+            FROM AI_Execution__c
+            WHERE Id = :sfExecId
+            LIMIT 1
+        ];
+
+        // Load ordered step definitions for the workflow
+        List<AI_Step__c> stepDefs = [
+            SELECT Id, Name, Step_Type__c, Order__c, Is_Active__c
+            FROM AI_Step__c
+            WHERE AI_Workflow__c = :exec.AI_Workflow__c
+            ORDER BY Order__c ASC
+        ];
+
+        // Load step executions for this run (keyed by Step Id)
+        List<AI_Step_Execution__c> stepExecs = [
+            SELECT Id, AI_Step__c, Status__c, Duration_Ms__c, Tokens_Used__c,
+                   Provider_Used__c, Model_Used__c, Error_Message__c,
+                   Parsed_Output__c, Prompt_Sent__c, Raw_Response__c
+            FROM AI_Step_Execution__c
+            WHERE AI_Execution__c = :sfExecId
+            ORDER BY CreatedDate ASC
+        ];
+
+        Map<Id, AI_Step_Execution__c> execByStep = new Map<Id, AI_Step_Execution__c>();
+        for (AI_Step_Execution__c se : stepExecs) {
+            execByStep.put(se.AI_Step__c, se);
+        }
+
+        // Merge
+        List<StepProgress> steps = new List<StepProgress>();
+        for (AI_Step__c sd : stepDefs) {
+            StepProgress sp    = new StepProgress();
+            sp.stepId          = sd.Id;
+            sp.stepName        = sd.Name;
+            sp.stepType        = sd.Step_Type__c;
+            sp.stepOrder       = sd.Order__c != null ? sd.Order__c.intValue() : 0;
+            sp.isActive        = sd.Is_Active__c;
+
+            AI_Step_Execution__c se = execByStep.get(sd.Id);
+            if (se != null) {
+                sp.stepExecId  = se.Id;
+                sp.status      = se.Status__c;
+                sp.durationMs  = se.Duration_Ms__c != null ? se.Duration_Ms__c.intValue() : null;
+                sp.tokensUsed  = se.Tokens_Used__c != null ? se.Tokens_Used__c.intValue() : null;
+                sp.providerUsed = se.Provider_Used__c;
+                sp.modelUsed   = se.Model_Used__c;
+                sp.errorMessage = se.Error_Message__c;
+                sp.parsedOutput = se.Parsed_Output__c;
+                sp.promptSent  = se.Prompt_Sent__c;
+                sp.rawResponse = se.Raw_Response__c;
+            } else {
+                sp.status = 'PENDING';
+            }
+            steps.add(sp);
+        }
+
+        ExecutionProgress progress      = new ExecutionProgress();
+        progress.executionId            = exec.Id;
+        progress.workflowName           = exec.AI_Workflow__r?.Name;
+        progress.canvasJson             = exec.AI_Workflow__r?.Canvas_JSON__c;
+        progress.status                 = exec.Status__c;
+        progress.startedAt              = exec.Started_At__c;
+        progress.completedAt            = exec.Completed_At__c;
+        progress.durationSeconds        = exec.Duration_Seconds__c;
+        progress.errorMessage           = exec.Error_Message__c;
+        progress.retryCount             = exec.Retry_Count__c != null ? exec.Retry_Count__c.intValue() : 0;
+        progress.totalTokens            = exec.Total_Tokens_Used__c != null ? exec.Total_Tokens_Used__c.intValue() : 0;
+        progress.triggerRecordId        = exec.Trigger_Record_Id__c;
+        progress.steps                  = steps;
+        return progress;
+    }
+
+    public class ExecutionProgress {
+        @AuraEnabled public String          executionId;
+        @AuraEnabled public String          workflowName;
+        @AuraEnabled public String          canvasJson;
+        @AuraEnabled public String          status;
+        @AuraEnabled public Datetime        startedAt;
+        @AuraEnabled public Datetime        completedAt;
+        @AuraEnabled public Decimal         durationSeconds;
+        @AuraEnabled public String          errorMessage;
+        @AuraEnabled public Integer         retryCount;
+        @AuraEnabled public Integer         totalTokens;
+        @AuraEnabled public String          triggerRecordId;
+        @AuraEnabled public List<StepProgress> steps;
+    }
+
+    public class StepProgress {
+        @AuraEnabled public String  stepId;
+        @AuraEnabled public String  stepExecId;
+        @AuraEnabled public String  stepName;
+        @AuraEnabled public String  stepType;
+        @AuraEnabled public Integer stepOrder;
+        @AuraEnabled public Boolean isActive;
+        @AuraEnabled public String  status;       // PENDING | RUNNING | COMPLETED | FAILED
+        @AuraEnabled public Integer durationMs;
+        @AuraEnabled public Integer tokensUsed;
+        @AuraEnabled public String  providerUsed;
+        @AuraEnabled public String  modelUsed;
+        @AuraEnabled public String  errorMessage;
+        @AuraEnabled public String  parsedOutput;
+        @AuraEnabled public String  promptSent;
+        @AuraEnabled public String  rawResponse;
+    }
+
     // ─── Private Helpers ─────────────────────────────────────────────────────
 
     private static Boolean isMongoActive() {

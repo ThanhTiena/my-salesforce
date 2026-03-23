@@ -33,17 +33,27 @@
                 onnodeadd={handleNodeAdd}>
             </c-ai-node-palette>
 
-            <!-- Centre: Canvas -->
-            <div
-                class="canvas-drop-zone"
-                ondragover={handleDragOver}
-                ondrop={handleDrop}>
-                <c-ai-workflow-designer
-                    workflow-id={activeWorkflowId}
-                    onnodeselect={handleNodeSelect}
-                    onnodeunselect={handleNodeUnselect}
-                    onexecutionstarted={handleExecutionStarted}>
-                </c-ai-workflow-designer>
+            <!-- Centre: Canvas + Execution Panel -->
+            <div class="canvas-column">
+                <div
+                    class="canvas-drop-zone"
+                    ondragover={handleDragOver}
+                    ondrop={handleDrop}>
+                    <c-ai-workflow-designer
+                        workflow-id={activeWorkflowId}
+                        onnodeselect={handleNodeSelect}
+                        onnodeunselect={handleNodeUnselect}
+                        onexecutionstarted={handleExecutionStarted}>
+                    </c-ai-workflow-designer>
+                </div>
+
+                <!-- Execution Progress Panel (shown after Run Now) -->
+                <template if:true={activeExecutionId}>
+                    <c-ai-execution-progress
+                        execution-id={activeExecutionId}
+                        onclose={handleExecutionPanelClose}>
+                    </c-ai-execution-progress>
+                </template>
             </div>
 
             <!-- Right: Properties Panel -->
