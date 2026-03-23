@@ -115,9 +115,9 @@ export default class AiWorkflowBuilder extends LightningElement {
     // ─── Node palette → canvas ───────────────────────────────────────────────
 
     handleNodeAdd(event) {
-        // Click-to-add from palette: place node at centre of canvas
+        // Click-to-add from palette: place node at centre of visible canvas
         const { nodeType } = event.detail;
-        this._getDesigner()?.addNode(nodeType, 300, 200);
+        this._getDesigner()?.addNode(nodeType, null, null);
     }
 
     // Drag-over: allow drop
@@ -126,16 +126,12 @@ export default class AiWorkflowBuilder extends LightningElement {
         event.dataTransfer.dropEffect = 'copy';
     }
 
-    // Drop: add node at drop position
+    // Drop: add node at drop position (pass client coords so designer can convert)
     handleDrop(event) {
         event.preventDefault();
         const nodeType = event.dataTransfer.getData('nodeType');
         if (!nodeType) return;
-
-        const canvasRect = event.currentTarget.getBoundingClientRect();
-        const x = event.clientX - canvasRect.left;
-        const y = event.clientY - canvasRect.top;
-        this._getDesigner()?.addNode(nodeType, x, y);
+        this._getDesigner()?.addNode(nodeType, event.clientX, event.clientY);
     }
 
     // ─── Node selection → properties panel ───────────────────────────────────
@@ -159,15 +155,7 @@ export default class AiWorkflowBuilder extends LightningElement {
 
     handleStepDelete(event) {
         const { nodeId } = event.detail;
-        // Tell Drawflow to remove the node (handled inside designer)
-        const designer = this._getDesigner();
-        if (designer) {
-            // Drawflow exposes removeNodeId on the drawflow instance
-            // We dispatch a custom event into the designer for it to handle
-            designer.dispatchEvent(new CustomEvent('removenoderequest', {
-                detail: { nodeId },
-            }));
-        }
+        this._getDesigner()?.removeNode(nodeId);
         this.selectedNode = null;
     }
 

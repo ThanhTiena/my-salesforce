@@ -40,9 +40,6 @@
 
         <!-- Canvas area -->
         <div class="canvas-container">
-            <!-- Drawflow renders here; lwc:dom="manual" gives Drawflow full DOM control -->
-            <div class="drawflow-wrapper" lwc:dom="manual" data-id="canvas"></div>
-
             <!-- Loading overlay -->
             <template if:true={isLoading}>
                 <div class="canvas-overlay">
@@ -53,9 +50,122 @@
             <!-- Empty state -->
             <template if:true={isEmpty}>
                 <div class="canvas-empty">
-                    <p>Drag a node from the palette on the left to start building your workflow.</p>
+                    <p>Drag a node from the palette to start building your workflow.</p>
                 </div>
             </template>
+
+            <!-- SVG Canvas -->
+            <svg
+                class="canvas-svg"
+                data-id="canvas"
+                onmousedown={handleCanvasMouseDown}
+                onmousemove={handleMouseMove}
+                onmouseup={handleMouseUp}
+                onmouseleave={handleMouseUp}
+                onwheel={handleWheel}>
+
+                <g data-id="viewport">
+                    <!-- Connection lines -->
+                    <template for:each={connections} for:item="conn">
+                        <g key={conn.id} class="conn-group" data-conn-id={conn.id} onclick={handleConnectionClick}>
+                            <path
+                                d={conn.path}
+                                class="conn-line"
+                                fill="none"
+                                stroke="#9ca3af"
+                                stroke-width="2">
+                            </path>
+                            <!-- Arrow tip circle at end of connection -->
+                            <circle cx={conn.tipX} cy={conn.tipY} r="5" class="conn-tip"></circle>
+                            <!-- Invisible wider hit area -->
+                            <path
+                                d={conn.path}
+                                class="conn-hit"
+                                fill="none"
+                                stroke="transparent"
+                                stroke-width="12">
+                            </path>
+                        </g>
+                    </template>
+
+                    <!-- In-progress connection line (while drawing) -->
+                    <template if:true={drawingConnection}>
+                        <path
+                            d={drawingPath}
+                            class="conn-drawing"
+                            fill="none"
+                            stroke="#1b96ff"
+                            stroke-width="2">
+                        </path>
+                    </template>
+
+                    <!-- Nodes -->
+                    <template for:each={nodes} for:item="node">
+                        <g
+                            key={node.id}
+                            class={node.groupClass}
+                            data-node-id={node.id}
+                            onmousedown={handleNodeMouseDown}>
+
+                            <!-- Node body -->
+                            <rect
+                                x={node.x}
+                                y={node.y}
+                                width="160"
+                                height="56"
+                                rx="8"
+                                class={node.rectClass}>
+                            </rect>
+
+                            <!-- Node icon -->
+                            <text
+                                x={node.iconX}
+                                y={node.iconY}
+                                class="node-icon"
+                                text-anchor="middle"
+                                dominant-baseline="central">
+                                {node.icon}
+                            </text>
+
+                            <!-- Node label -->
+                            <text
+                                x={node.labelX}
+                                y={node.labelY}
+                                class="node-label"
+                                dominant-baseline="central">
+                                {node.displayLabel}
+                            </text>
+
+                            <!-- Output port (right side) -->
+                            <template if:true={node.hasOutput}>
+                                <circle
+                                    cx={node.outPortX}
+                                    cy={node.outPortY}
+                                    r="6"
+                                    class="port port-out"
+                                    data-node-id={node.id}
+                                    data-port="out"
+                                    onmousedown={handlePortMouseDown}>
+                                </circle>
+                            </template>
+
+                            <!-- Input port (left side) -->
+                            <template if:true={node.hasInput}>
+                                <circle
+                                    cx={node.inPortX}
+                                    cy={node.inPortY}
+                                    r="6"
+                                    class="port port-in"
+                                    data-node-id={node.id}
+                                    data-port="in"
+                                    onmouseup={handlePortMouseUp}>
+                                </circle>
+                            </template>
+                        </g>
+                    </template>
+
+                </g>
+            </svg>
         </div>
     </div>
 </template>

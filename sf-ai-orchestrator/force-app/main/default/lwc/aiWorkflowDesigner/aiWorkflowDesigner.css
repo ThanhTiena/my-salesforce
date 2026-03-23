@@ -3,6 +3,7 @@
     flex-direction: column;
     height: 100%;
     background: #f3f3f3;
+    user-select: none;
 }
 
 /* ── Toolbar ── */
@@ -15,6 +16,7 @@
     border-bottom: 1px solid #dddbda;
     box-shadow: 0 1px 3px rgba(0,0,0,.1);
     z-index: 10;
+    flex-shrink: 0;
 }
 
 .toolbar-title {
@@ -34,11 +36,109 @@
     position: relative;
     flex: 1;
     overflow: hidden;
+    background: #f8f9fa;
+    background-image:
+        radial-gradient(circle, #d0d0d0 1px, transparent 1px);
+    background-size: 24px 24px;
 }
 
-.drawflow-wrapper {
+.canvas-svg {
     width: 100%;
     height: 100%;
+    cursor: default;
+    display: block;
+}
+
+/* ── Node styles ── */
+.node-group {
+    cursor: grab;
+}
+.node-group:active {
+    cursor: grabbing;
+}
+
+.node-rect {
+    fill: #ffffff;
+    stroke: #d1d5db;
+    stroke-width: 1.5;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.12));
+    transition: stroke 0.15s;
+}
+
+.node-rect.node-selected {
+    stroke: #1b96ff;
+    stroke-width: 2.5;
+    filter: drop-shadow(0 0 6px rgba(27,150,255,.4));
+}
+
+/* Per-type accent via left stripe colour on the rect */
+.node-start         { fill: #f0fdf4; stroke: #2e844a; }
+.node-end           { fill: #fff1f2; stroke: #ba0517; }
+.node-ai-inference  { fill: #eff6ff; stroke: #1b96ff; }
+.node-decision      { fill: #fff7ed; stroke: #ff9e2c; }
+.node-http-callout  { fill: #f9fafb; stroke: #6b7280; }
+.node-apex-action   { fill: #f5f3ff; stroke: #7c3aed; }
+.node-flow-launch   { fill: #f0f9ff; stroke: #0284c7; }
+.node-wait          { fill: #fff8f5; stroke: #9a3b14; }
+.node-loop          { fill: #eff6ff; stroke: #1d4ed8; }
+.node-subflow       { fill: #f9fafb; stroke: #374151; }
+.node-notification  { fill: #f0fdf4; stroke: #059669; }
+
+.node-icon {
+    font-size: 16px;
+    dominant-baseline: central;
+    pointer-events: none;
+}
+
+.node-label {
+    font-size: 12px;
+    font-weight: 600;
+    fill: #032d60;
+    font-family: 'Salesforce Sans', Arial, sans-serif;
+    pointer-events: none;
+}
+
+/* ── Ports ── */
+.port {
+    fill: #ffffff;
+    stroke-width: 2;
+    cursor: crosshair;
+}
+.port-out {
+    stroke: #1b96ff;
+}
+.port-out:hover {
+    fill: #1b96ff;
+}
+.port-in {
+    stroke: #9ca3af;
+}
+.port-in:hover {
+    fill: #9ca3af;
+}
+
+/* ── Connections ── */
+.conn-group {
+    cursor: pointer;
+}
+.conn-line {
+    transition: stroke 0.15s;
+}
+.conn-tip {
+    fill: #9ca3af;
+    pointer-events: none;
+}
+.conn-group:hover .conn-line {
+    stroke: #ef4444;
+    stroke-width: 2.5;
+}
+.conn-group:hover .conn-tip {
+    fill: #ef4444;
+}
+
+.conn-drawing {
+    stroke-dasharray: 6 3;
+    pointer-events: none;
 }
 
 /* ── Overlays ── */
@@ -62,29 +162,6 @@
     font-size: 0.875rem;
     pointer-events: none;
 }
-
-/* ── Node styles (Drawflow node inner content) ── */
-.drawflow .df-node-inner {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-.drawflow .node-start  { background: #2e844a; color: #fff; }
-.drawflow .node-end    { background: #ba0517; color: #fff; }
-.drawflow .node-ai     { background: #1b96ff; color: #fff; }
-.drawflow .node-decision { background: #ff9e2c; color: #032d60; }
-.drawflow .node-http   { background: #6b7280; color: #fff; }
-.drawflow .node-apex   { background: #7c3aed; color: #fff; }
-.drawflow .node-flow   { background: #0284c7; color: #fff; }
-.drawflow .node-wait   { background: #9a3b14; color: #fff; }
-.drawflow .node-loop   { background: #1d4ed8; color: #fff; }
-.drawflow .node-subflow { background: #374151; color: #fff; }
-.drawflow .node-notification { background: #059669; color: #fff; }
-.drawflow .node-default { background: #dddbda; color: #032d60; }
 
 /* ── Badges ── */
 .badge-warning  { --slds-c-badge-color-background: #ff9e2c; }
