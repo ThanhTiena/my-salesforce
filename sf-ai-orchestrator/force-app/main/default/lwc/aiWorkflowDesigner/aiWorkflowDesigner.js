@@ -97,6 +97,9 @@ export default class AiWorkflowDesigner extends LightningElement {
     _workflowId = null;
     workflow    = null;
 
+    // Layout direction: 'vertical' (top→bottom) | 'horizontal' (left→right)
+    _layoutDirection = 'vertical';
+
     // Drag state
     _drag       = null;  // { type:'node'|'canvas'|'port', nodeId?, startX, startY, startNodeX?, startNodeY? }
     _panOffset  = { x: 0, y: 0 };
@@ -112,6 +115,13 @@ export default class AiWorkflowDesigner extends LightningElement {
     connectedCallback() {
         this._boundMouseMove = this.handleMouseMove.bind(this);
         this._boundMouseUp   = this.handleMouseUp.bind(this);
+    }
+
+    renderedCallback() {
+        // Apply the viewport transform after every render.
+        // This covers the case where _applyViewport() was called while the SVG
+        // wasn't in the DOM yet (e.g. immediately after workflowId is set).
+        this._applyViewport();
     }
 
     disconnectedCallback() {
@@ -160,14 +170,20 @@ export default class AiWorkflowDesigner extends LightningElement {
             try {
                 const saved = JSON.parse(canvasJson);
                 if (saved && saved.nodes) {
-                    this._nodes = saved.nodes.map(n => ({
-                        id    : n.id,
-                        type  : n.type,
-                        label : n.label,
-                        x     : n.x,
-                        y     : n.y,
-                        data  : n.data || {},
-                    }));
+                    this._nodes = saved.nodes.map(n => {
+                        const meta = NODE_META[n.type] || { hasInput: true, hasOutput: true };
+                        return {
+                            id        : n.id,
+                            type      : n.type,
+                            sfId      : n.sfId || null,
+                            label     : n.label,
+                            x         : n.x,
+                            y         : n.y,
+                            data      : n.data || {},
+                            hasInput  : meta.hasInput,
+                            hasOutput : meta.hasOutput,
+                        };
+                    });
                     this._refreshNodes();
 
                     if (saved.connections) {
@@ -189,14 +205,16 @@ export default class AiWorkflowDesigner extends LightningElement {
             }
         }
 
-        // Auto-layout: arrange steps in a vertical line
-        let x = 200, y = 80;
-        const spacing = 100;
-        steps.forEach((step) => {
+        // Auto-layout: arrange steps according to current direction
+        const isHoriz  = this._layoutDirection === 'horizontal';
+        const SPACING  = isHoriz ? NODE_W + 80 : NODE_H + 100;
+        let x = 80, y = 80;
+        steps.forEach((step, idx) => {
             this._addNodeInternal(
                 step.Step_Type__c,
-                x, y,
-                step.Id,     // sfId for mapping back to Salesforce record
+                isHoriz ? x + idx * SPACING : x,
+                isHoriz ? y                  : y + idx * SPACING,
+                step.Id,
                 step.Name,
                 {
                     providerDeveloperName : step.AI_Provider_Developer_Name__c,
@@ -210,7 +228,6 @@ export default class AiWorkflowDesigner extends LightningElement {
                     condition             : step.Condition__c,
                 }
             );
-            y += NODE_H + spacing;
         });
 
         // Auto-connect sequential steps
@@ -235,10 +252,12 @@ export default class AiWorkflowDesigner extends LightningElement {
         const node  = {
             id,
             type,
-            sfId    : sfId || null,
-            label   : label || meta.label,
+            sfId      : sfId || null,
+            label     : label || meta.label,
             x, y,
-            data    : data || {},
+            data      : data || {},
+            hasInput  : meta.hasInput,
+            hasOutput : meta.hasOutput,
         };
         this._nodes = [...this._nodes, node];
         this._refreshNodes();
@@ -256,6 +275,16 @@ export default class AiWorkflowDesigner extends LightningElement {
     _toViewModel(node) {
         const meta = NODE_META[node.type] || { icon: '●', label: node.type, color: '#dddbda', hasInput: true, hasOutput: true };
         const isSelected = this._selectedNodeId === node.id;
+        const isHoriz = this._layoutDirection === 'horizontal';
+
+        // Port positions differ by layout direction:
+        //   horizontal → output on right, input on left
+        //   vertical   → output on bottom centre, input on top centre
+        const outPortX = isHoriz ? node.x + NODE_W          : node.x + NODE_W / 2;
+        const outPortY = isHoriz ? node.y + NODE_H / 2      : node.y + NODE_H;
+        const inPortX  = isHoriz ? node.x                   : node.x + NODE_W / 2;
+        const inPortY  = isHoriz ? node.y + NODE_H / 2      : node.y;
+
         return {
             id           : node.id,
             type         : node.type,
@@ -272,10 +301,8 @@ export default class AiWorkflowDesigner extends LightningElement {
             iconY        : node.y + NODE_H / 2,
             labelX       : node.x + 36,
             labelY       : node.y + NODE_H / 2,
-            outPortX     : node.x + NODE_W,
-            outPortY     : node.y + NODE_H / 2,
-            inPortX      : node.x,
-            inPortY      : node.y + NODE_H / 2,
+            outPortX, outPortY,
+            inPortX,  inPortY,
         };
     }
 
@@ -290,13 +317,14 @@ export default class AiWorkflowDesigner extends LightningElement {
     }
 
     _buildConnection(fromId, toId) {
-        const from = this._nodes.find(n => n.id === fromId);
-        const to   = this._nodes.find(n => n.id === toId);
+        const from    = this._nodes.find(n => n.id === fromId);
+        const to      = this._nodes.find(n => n.id === toId);
         if (!from || !to) return null;
-        const x1 = from.x + NODE_W;
-        const y1 = from.y + NODE_H / 2;
-        const x2 = to.x;
-        const y2 = to.y + NODE_H / 2;
+        const isHoriz = this._layoutDirection === 'horizontal';
+        const x1 = isHoriz ? from.x + NODE_W     : from.x + NODE_W / 2;
+        const y1 = isHoriz ? from.y + NODE_H / 2 : from.y + NODE_H;
+        const x2 = isHoriz ? to.x                : to.x + NODE_W / 2;
+        const y2 = isHoriz ? to.y + NODE_H / 2   : to.y;
         return { id: connId(fromId, toId), fromId, toId, path: bezierPath(x1, y1, x2, y2), tipX: x2, tipY: y2 };
     }
 
@@ -564,14 +592,61 @@ export default class AiWorkflowDesigner extends LightningElement {
         }
     }
 
+    // ─── Layout direction ─────────────────────────────────────────────────────
+
+    handleLayoutVertical() {
+        if (this._layoutDirection === 'vertical') return;
+        this._layoutDirection = 'vertical';
+        this._reLayout();
+    }
+
+    handleLayoutHorizontal() {
+        if (this._layoutDirection === 'horizontal') return;
+        this._layoutDirection = 'horizontal';
+        this._reLayout();
+    }
+
+    // Re-arrange all existing nodes in the current direction, rebuild connections
+    _reLayout() {
+        if (!this._nodes.length) return;
+        const isHoriz  = this._layoutDirection === 'horizontal';
+        const SPACING  = isHoriz ? NODE_W + 80 : NODE_H + 100;
+        const startX   = 80;
+        const startY   = 80;
+
+        this._nodes = this._nodes.map((node, idx) => ({
+            ...node,
+            x: isHoriz ? startX + idx * SPACING : startX,
+            y: isHoriz ? startY                  : startY + idx * SPACING,
+        }));
+
+        this._refreshNodes();
+        this._refreshConnections();
+        this._panOffset = { x: 0, y: 0 };
+        this._applyViewport();
+        this.isDirty = true;
+    }
+
     // ─── Getters ─────────────────────────────────────────────────────────────
 
     get workflowName()     { return this.workflow?.Name ?? 'New Workflow'; }
     get isActive()         { return this.workflow?.Is_Active__c === true; }
-    get statusLabel()      { return this.isActive ? 'Active' : 'Inactive'; }
+    get statusLabel()      { return this._workflowId ? (this.isActive ? 'Active' : 'Inactive') : ''; }
     get statusBadgeClass() { return this.isActive ? 'badge-success' : 'badge-neutral'; }
-    get isNotActive()      { return !this.isActive; }
     get isEmpty()          { return !this.isLoading && !!this._workflowId && this._nodes.length === 0; }
+
+    get layoutBtnVertical() {
+        return 'layout-btn' + (this._layoutDirection === 'vertical' ? ' layout-btn--active' : '');
+    }
+    get layoutBtnHorizontal() {
+        return 'layout-btn' + (this._layoutDirection === 'horizontal' ? ' layout-btn--active' : '');
+    }
+
+    // ── Button disable conditions ──────────────────────────────────────────────
+    get isSaveDisabled()       { return this.isSaving || !this._workflowId; }
+    get isActivateDisabled()   { return !this._workflowId || this.isDirty || this._nodes.length === 0; }
+    get isDeactivateDisabled() { return !this._workflowId; }
+    get isRunDisabled()        { return !this._workflowId || !this.isActive; }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
 

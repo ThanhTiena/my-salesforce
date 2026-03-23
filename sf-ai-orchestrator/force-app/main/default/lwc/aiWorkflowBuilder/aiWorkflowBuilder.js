@@ -3,6 +3,7 @@ import { ShowToastEvent }   from 'lightning/platformShowToastEvent';
 import { refreshApex }      from '@salesforce/apex';
 import getWorkflows         from '@salesforce/apex/WorkflowService.getWorkflows';
 import createWorkflow       from '@salesforce/apex/WorkflowService.createWorkflow';
+import cloneTemplate        from '@salesforce/apex/WorkflowTemplateService.cloneTemplate';
 import getActiveProviders   from '@salesforce/apex/WorkflowService.getActiveProviders';
 
 export default class AiWorkflowBuilder extends LightningElement {
@@ -12,12 +13,18 @@ export default class AiWorkflowBuilder extends LightningElement {
     @track activeWorkflowId  = null;
     @track selectedNode      = null;
     @track showNewModal      = false;
-    @track showTemplateModal = false;
+    @track showTemplateModal = false;  // shows the template list
+    @track showCloneModal    = false;  // shows the "name your copy" dialog
     @track isCreating        = false;
+    @track isCloning         = false;
 
     @track newWorkflowName   = '';
     @track newWorkflowDesc   = '';
     @track newWorkflowObject = '';
+
+    @track _selectedTemplateId   = null;
+    @track _selectedTemplateName = '';
+    @track cloneWorkflowName     = '';
 
     _workflowsWireResult;
     providers = [];
@@ -45,6 +52,10 @@ export default class AiWorkflowBuilder extends LightningElement {
             label : w.Name + (w.Is_Active__c ? ' ✓' : ''),
             value : w.Id,
         }));
+    }
+
+    get isCloneDisabled() {
+        return this.isCloning || !this.cloneWorkflowName.trim();
     }
 
     // ─── Workflow selection ───────────────────────────────────────────────────
@@ -78,14 +89,14 @@ export default class AiWorkflowBuilder extends LightningElement {
         }
         this.isCreating = true;
         try {
-            const newId          = await createWorkflow({
+            const newId = await createWorkflow({
                 name         : this.newWorkflowName.trim(),
                 description  : this.newWorkflowDesc,
                 triggerObject: this.newWorkflowObject,
             });
             await refreshApex(this._workflowsWireResult);
-            this.activeWorkflowId = newId;
             this.showNewModal     = false;
+            this.activeWorkflowId = newId;
             this._showToast('Created', 'Workflow "' + this.newWorkflowName + '" created.', 'success');
         } catch (e) {
             this._showToast('Create Failed', e.body?.message ?? e.message, 'error');
@@ -98,35 +109,69 @@ export default class AiWorkflowBuilder extends LightningElement {
 
     handleShowTemplates() {
         this.showTemplateModal = true;
+        this.showCloneModal    = false;
     }
 
     closeTemplateModal() {
-        this.showTemplateModal = false;
+        this.showTemplateModal   = false;
+        this.showCloneModal      = false;
+        this._selectedTemplateId = null;
+        this.cloneWorkflowName   = '';
     }
 
-    async handleWorkflowCreated(event) {
-        const newId = event.detail?.workflowId;
-        this.showTemplateModal = false;
-        await refreshApex(this._workflowsWireResult);
-        this.activeWorkflowId = newId;
-        this.selectedNode = null;
+    // Fired by c-ai-template-browser when user clicks "Use Template"
+    handleTemplateSelect(event) {
+        this._selectedTemplateId   = event.detail.templateId;
+        this._selectedTemplateName = event.detail.templateName;
+        this.cloneWorkflowName     = 'Copy of ' + event.detail.templateName;
+        this.showCloneModal        = true;   // switch to confirm step inside the same modal
+    }
+
+    handleCloneNameChange(event) {
+        this.cloneWorkflowName = event.detail.value;
+    }
+
+    handleBackToTemplates() {
+        this.showCloneModal = false;
+    }
+
+    async handleConfirmClone() {
+        if (!this.cloneWorkflowName.trim()) return;
+        this.isCloning = true;
+        try {
+            const newId = await cloneTemplate({
+                templateId : this._selectedTemplateId,
+                newName    : this.cloneWorkflowName.trim(),
+            });
+            await refreshApex(this._workflowsWireResult);
+            this.closeTemplateModal();
+            // Give LWC one tick to close modal / destroy old designer instance
+            // before setting a new workflowId so renderedCallback fires cleanly
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => {
+                this.activeWorkflowId = newId;
+                this.selectedNode     = null;
+            }, 0);
+            this._showToast('Created', '"' + this.cloneWorkflowName + '" created from template.', 'success');
+        } catch (e) {
+            this._showToast('Clone Failed', e.body?.message ?? e.message, 'error');
+        } finally {
+            this.isCloning = false;
+        }
     }
 
     // ─── Node palette → canvas ───────────────────────────────────────────────
 
     handleNodeAdd(event) {
-        // Click-to-add from palette: place node at centre of visible canvas
         const { nodeType } = event.detail;
         this._getDesigner()?.addNode(nodeType, null, null);
     }
 
-    // Drag-over: allow drop
     handleDragOver(event) {
         event.preventDefault();
         event.dataTransfer.dropEffect = 'copy';
     }
 
-    // Drop: add node at drop position (pass client coords so designer can convert)
     handleDrop(event) {
         event.preventDefault();
         const nodeType = event.dataTransfer.getData('nodeType');
@@ -149,7 +194,6 @@ export default class AiWorkflowBuilder extends LightningElement {
     handleStepUpdate(event) {
         const { nodeId, stepData } = event.detail;
         this._getDesigner()?.updateNodeData(nodeId, stepData);
-        // Deselect to give visual feedback that apply worked
         this.selectedNode = { ...this.selectedNode, stepData };
     }
 

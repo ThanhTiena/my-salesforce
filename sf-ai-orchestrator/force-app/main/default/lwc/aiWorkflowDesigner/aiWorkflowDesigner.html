@@ -6,19 +6,35 @@
             <div class="toolbar-actions">
                 <lightning-badge if:true={isDirty} label="Unsaved changes" class="badge-warning"></lightning-badge>
                 <lightning-badge label={statusLabel} class={statusBadgeClass}></lightning-badge>
+                <!-- Layout direction toggle -->
+                <div class="layout-toggle" title="Layout direction">
+                    <button
+                        class={layoutBtnVertical}
+                        title="Vertical layout"
+                        onclick={handleLayoutVertical}>
+                        <lightning-icon icon-name="utility:vertical_rule" size="x-small"></lightning-icon>
+                    </button>
+                    <button
+                        class={layoutBtnHorizontal}
+                        title="Horizontal layout"
+                        onclick={handleLayoutHorizontal}>
+                        <lightning-icon icon-name="utility:horizontal_rule" size="x-small"></lightning-icon>
+                    </button>
+                </div>
                 <lightning-button
                     label="Save"
                     icon-name="utility:save"
                     variant="neutral"
                     onclick={handleSave}
-                    disabled={isSaving}>
+                    disabled={isSaveDisabled}>
                 </lightning-button>
                 <lightning-button
                     if:true={isActive}
                     label="Deactivate"
                     icon-name="utility:pause"
                     variant="neutral"
-                    onclick={handleToggleActive}>
+                    onclick={handleToggleActive}
+                    disabled={isDeactivateDisabled}>
                 </lightning-button>
                 <lightning-button
                     if:false={isActive}
@@ -26,14 +42,14 @@
                     icon-name="utility:play"
                     variant="success"
                     onclick={handleToggleActive}
-                    disabled={isDirty}>
+                    disabled={isActivateDisabled}>
                 </lightning-button>
                 <lightning-button
                     label="Run Now"
                     icon-name="utility:apex"
                     variant="brand"
                     onclick={handleRunNow}
-                    disabled={isNotActive}>
+                    disabled={isRunDisabled}>
                 </lightning-button>
             </div>
         </div>

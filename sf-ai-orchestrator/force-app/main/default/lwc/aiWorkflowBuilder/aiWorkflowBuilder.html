@@ -57,27 +57,77 @@
         </div>
     </lightning-card>
 
-    <!-- Template Browser Modal -->
+    <!-- ── Template Browser Modal ── -->
     <template if:true={showTemplateModal}>
         <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
             <div class="slds-modal__container slds-modal__container_large">
                 <header class="slds-modal__header">
-                    <h2 class="slds-modal__title">Choose a Template</h2>
-                    <button class="slds-button slds-button_icon slds-modal__close" onclick={closeTemplateModal}>
+                    <!-- Show back arrow when on confirm step -->
+                    <template if:true={showCloneModal}>
+                        <button
+                            class="slds-button slds-button_icon slds-modal__close slds-button_back"
+                            title="Back to templates"
+                            onclick={handleBackToTemplates}>
+                            <lightning-icon icon-name="utility:back" size="small"></lightning-icon>
+                        </button>
+                        <h2 class="slds-modal__title">Name Your Workflow</h2>
+                    </template>
+                    <template if:false={showCloneModal}>
+                        <h2 class="slds-modal__title">Choose a Template</h2>
+                    </template>
+                    <button
+                        class="slds-button slds-button_icon slds-modal__close"
+                        title="Close"
+                        onclick={closeTemplateModal}>
                         <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
                     </button>
                 </header>
-                <div class="slds-modal__content slds-p-around_medium">
-                    <c-ai-template-browser
-                        onworkflowcreated={handleWorkflowCreated}>
-                    </c-ai-template-browser>
-                </div>
+
+                <!-- Step 1: Template list -->
+                <template if:false={showCloneModal}>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <c-ai-template-browser
+                            ontemplateselect={handleTemplateSelect}>
+                        </c-ai-template-browser>
+                    </div>
+                </template>
+
+                <!-- Step 2: Name confirmation -->
+                <template if:true={showCloneModal}>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <p class="slds-text-body_small slds-m-bottom_medium clone-source-label">
+                            Template: <strong>{_selectedTemplateName}</strong>
+                        </p>
+                        <lightning-input
+                            label="Workflow Name"
+                            value={cloneWorkflowName}
+                            onchange={handleCloneNameChange}
+                            placeholder="Enter a name for the new workflow"
+                            required
+                            maxlength="80">
+                        </lightning-input>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <lightning-button
+                            label="Back"
+                            variant="neutral"
+                            onclick={handleBackToTemplates}
+                            disabled={isCloning}>
+                        </lightning-button>
+                        <lightning-button
+                            label="Create Workflow"
+                            variant="brand"
+                            onclick={handleConfirmClone}
+                            disabled={isCloneDisabled}>
+                        </lightning-button>
+                    </footer>
+                </template>
             </div>
         </section>
         <div class="slds-backdrop slds-backdrop_open"></div>
     </template>
 
-    <!-- New Workflow Modal -->
+    <!-- ── New Workflow Modal ── -->
     <template if:true={showNewModal}>
         <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
             <div class="slds-modal__container">

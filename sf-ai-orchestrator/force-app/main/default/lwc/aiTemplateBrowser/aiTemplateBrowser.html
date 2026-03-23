@@ -1,8 +1,5 @@
 <template>
     <div class="template-browser">
-        <div class="page-header">
-            <h1 class="slds-text-heading_large">Workflow Templates</h1>
-        </div>
 
         <!-- Loading state -->
         <template if:true={isLoading}>
@@ -42,6 +39,7 @@
                                 label="Use Template"
                                 variant="brand"
                                 data-id={tmpl.Id}
+                                data-name={tmpl.Name}
                                 onclick={handleUseTemplate}>
                             </lightning-button>
                         </div>
@@ -50,44 +48,5 @@
             </div>
         </template>
 
-        <!-- Clone modal -->
-        <template if:true={showModal}>
-            <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
-                <div class="modal-container">
-                    <div class="modal-header">
-                        <h2 id="modal-heading" class="slds-text-heading_medium">Create from Template</h2>
-                    </div>
-                    <div class="modal-body">
-                        <lightning-input
-                            label="Workflow Name"
-                            value={newWorkflowName}
-                            onchange={handleNameChange}
-                            placeholder="Enter a name for the new workflow"
-                            required>
-                        </lightning-input>
-                    </div>
-                    <div class="modal-footer">
-                        <lightning-button
-                            label="Cancel"
-                            variant="neutral"
-                            onclick={handleModalClose}
-                            disabled={isCloning}>
-                        </lightning-button>
-                        <lightning-button
-                            label="Create Workflow"
-                            variant="brand"
-                            disabled={isCloneDisabled}
-                            onclick={handleClone}>
-                            <template if:true={isCloning}>
-                                <lightning-spinner
-                                    alternative-text="Creating..."
-                                    size="small">
-                                </lightning-spinner>
-                            </template>
-                        </lightning-button>
-                    </div>
-                </div>
-            </div>
-        </template>
     </div>
 </template>

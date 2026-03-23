@@ -31,6 +31,47 @@
     gap: 0.5rem;
 }
 
+/* ── Layout toggle ── */
+.layout-toggle {
+    display: flex;
+    border: 1px solid #dddbda;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.layout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: #ffffff;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #706e6b;
+    transition: background 0.15s, color 0.15s;
+}
+
+.layout-btn:first-child {
+    border-right: 1px solid #dddbda;
+}
+
+.layout-btn:hover {
+    background: #f3f3f3;
+    color: #032d60;
+}
+
+.layout-btn--active {
+    background: #1b96ff;
+    color: #ffffff;
+}
+
+.layout-btn--active:hover {
+    background: #0176d3;
+    color: #ffffff;
+}
+
 /* ── Canvas ── */
 .canvas-container {
     position: relative;
