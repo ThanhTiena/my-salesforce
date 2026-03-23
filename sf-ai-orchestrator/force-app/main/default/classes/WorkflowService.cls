@@ -21,7 +21,7 @@ public with sharing class WorkflowService {
     /**
      * Returns all active + inactive workflows visible to the current user.
      */
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled(cacheable=false)
     public static List<AI_Workflow__c> getWorkflows() {
         AISecurityUtil.assertReadable(AI_Workflow__c.SObjectType);
         return [

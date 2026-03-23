@@ -25,18 +25,31 @@ const NODE_CLASSES = {
 
 export default class AiWorkflowDesigner extends LightningElement {
 
-    @api workflowId;
+    // When workflowId changes reload the canvas
+    @api
+    get workflowId() {
+        return this._workflowId;
+    }
+    set workflowId(val) {
+        this._workflowId = val;
+        if (this._drawflow) {
+            // Drawflow already initialised — just reload data
+            this._loadWorkflow();
+        }
+        // If Drawflow not ready yet, _initDrawflow will call _loadWorkflow when ready
+    }
 
     @track workflow     = null;
     @track steps        = [];
-    @track isLoading    = true;
+    @track isLoading    = false;
     @track isSaving     = false;
     @track isDirty      = false;
-    @track selectedNode = null;  // { nodeId, stepType, stepData }
+    @track selectedNode = null;
 
+    _workflowId       = null;
     _drawflow         = null;
     _drawflowReady    = false;
-    _drawflowInitTries = 0;
+    _renderingCanvas  = false;  // suppress dirty flag while rendering saved data
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -97,14 +110,23 @@ export default class AiWorkflowDesigner extends LightningElement {
         this._drawflow.editor_mode      = 'edit';
 
         // Wire Drawflow events → LWC
-        this._drawflow.on('nodeSelected',   (id) => this._onNodeSelected(id));
-        this._drawflow.on('nodeUnselected', ()   => this._onNodeUnselected());
-        this._drawflow.on('nodeCreated',    ()   => { this.isDirty = true; });
-        this._drawflow.on('nodeRemoved',    ()   => { this.isDirty = true; });
-        this._drawflow.on('connectionCreated', () => { this.isDirty = true; });
-        this._drawflow.on('connectionRemoved', () => { this.isDirty = true; });
+        // Guard with _renderingCanvas so restoring saved data doesn't set dirty
+        this._drawflow.on('nodeSelected',      (id) => this._onNodeSelected(id));
+        this._drawflow.on('nodeUnselected',    ()   => this._onNodeUnselected());
+        this._drawflow.on('nodeCreated',       ()   => { if (!this._renderingCanvas) this.isDirty = true; });
+        this._drawflow.on('nodeRemoved',       ()   => { if (!this._renderingCanvas) this.isDirty = true; });
+        this._drawflow.on('connectionCreated', ()   => { if (!this._renderingCanvas) this.isDirty = true; });
+        this._drawflow.on('connectionRemoved', ()   => { if (!this._renderingCanvas) this.isDirty = true; });
 
         this._drawflow.start();
+
+        // Listen for node-delete requests from the properties panel
+        this.template.addEventListener('removenoderequest', (e) => {
+            const { nodeId } = e.detail;
+            if (this._drawflow && nodeId != null) {
+                this._drawflow.removeNodeId('node-' + nodeId);
+            }
+        });
 
         // Load workflow data
         this._loadWorkflow();
@@ -113,14 +135,20 @@ export default class AiWorkflowDesigner extends LightningElement {
     // ─── Data Loading ─────────────────────────────────────────────────────────
 
     async _loadWorkflow() {
-        if (!this.workflowId) {
+        if (!this._workflowId) {
+            this.workflow  = null;
+            this.steps     = [];
+            this.isDirty   = false;
             this.isLoading = false;
+            if (this._drawflow) this._drawflow.clear();
             return;
         }
+        this.isLoading = true;
+        this.isDirty   = false;
         try {
-            const data      = await getWorkflow({ workflowId: this.workflowId });
-            this.workflow   = data.workflow;
-            this.steps      = data.steps || [];
+            const data    = await getWorkflow({ workflowId: this._workflowId });
+            this.workflow = data.workflow;
+            this.steps    = data.steps || [];
             this._renderStepsOnCanvas(this.steps, this.workflow?.Canvas_JSON__c);
         } catch (e) {
             this._showToast('Load Error', e.body?.message ?? e.message, 'error');
@@ -132,38 +160,38 @@ export default class AiWorkflowDesigner extends LightningElement {
 
     _renderStepsOnCanvas(steps, canvasJson) {
         if (!this._drawflow) return;
-        this._drawflow.clear();
 
-        // If we have a saved canvas layout, restore it directly (preserves node positions + connections)
-        if (canvasJson) {
-            try {
-                const saved = JSON.parse(canvasJson);
-                this._drawflow.import(saved);
-                return;
-            } catch (e) {
-                // Fallback to linear layout if JSON is malformed
+        this._renderingCanvas = true;
+        try {
+            this._drawflow.clear();
+
+            if (canvasJson) {
+                try {
+                    this._drawflow.import(JSON.parse(canvasJson));
+                    return;
+                } catch (e) {
+                    // Malformed JSON — fall through to linear layout
+                }
             }
+
+            if (!steps.length) return;
+
+            let x = 200, y = 100;
+            const spacing = 150;
+            steps.forEach((step, idx) => {
+                this._drawflow.addNode(
+                    step.Id,
+                    step.Step_Type__c === 'START' ? 0 : 1,
+                    step.Step_Type__c === 'END'   ? 0 : 2,
+                    x, y + (idx * spacing),
+                    NODE_CLASSES[step.Step_Type__c] || 'node-default',
+                    { stepId: step.Id, stepType: step.Step_Type__c },
+                    this._buildNodeHtml(step)
+                );
+            });
+        } finally {
+            this._renderingCanvas = false;
         }
-
-        if (!steps.length) return;
-
-        // Default linear layout for workflows that have never been saved with canvas JSON
-        let x = 200;
-        let y = 100;
-        const spacing = 150;
-
-        steps.forEach((step, idx) => {
-            const nodeHtml = this._buildNodeHtml(step);
-            this._drawflow.addNode(
-                step.Id,
-                1,
-                step.Step_Type__c === 'START' ? 0 : (step.Step_Type__c === 'END' ? 0 : 2),
-                x, y + (idx * spacing),
-                NODE_CLASSES[step.Step_Type__c] || 'node-default',
-                { stepId: step.Id, stepType: step.Step_Type__c },
-                nodeHtml
-            );
-        });
     }
 
     _buildNodeHtml(step) {
@@ -248,17 +276,16 @@ export default class AiWorkflowDesigner extends LightningElement {
     // ─── Save ─────────────────────────────────────────────────────────────────
 
     async handleSave() {
-        if (!this.workflow?.Id) return;
+        if (!this._workflowId) return;
         this.isSaving = true;
         try {
-            // Collect step order from canvas node positions
             const exportData  = this._drawflow.export();
             const nodeEntries = Object.entries(exportData?.drawflow?.Home?.data ?? {});
 
             const stepsToSave = nodeEntries.map(([, nodeObj], idx) => ({
-                Id               : nodeObj.data?.stepId !== null ? nodeObj.data?.stepId : undefined,
+                Id               : nodeObj.data?.stepId || undefined,
                 Name             : nodeObj.data?.stepType || 'Step ' + (idx + 1),
-                AI_Workflow__c   : this.workflowId,
+                AI_Workflow__c   : this._workflowId,
                 Step_Type__c     : nodeObj.data?.stepType,
                 Order__c         : idx + 1,
                 Is_Active__c     : true,
@@ -273,11 +300,10 @@ export default class AiWorkflowDesigner extends LightningElement {
                 Condition__c                  : nodeObj.data?.condition,
             }));
 
-            // Persist canvas layout so node positions + connections are restored on next load
-            const canvasJson = JSON.stringify(this._drawflow.export());
+            const canvasJson     = JSON.stringify(this._drawflow.export());
             const workflowToSave = { ...this.workflow, Canvas_JSON__c: canvasJson };
             await saveWorkflow({ workflow: workflowToSave });
-            await saveSteps({ workflowId: this.workflowId, steps: stepsToSave });
+            await saveSteps({ workflowId: this._workflowId, steps: stepsToSave });
             this.workflow = { ...this.workflow, Canvas_JSON__c: canvasJson };
 
             this.isDirty = false;
@@ -290,10 +316,10 @@ export default class AiWorkflowDesigner extends LightningElement {
     }
 
     async handleToggleActive() {
-        if (!this.workflow?.Id) return;
+        if (!this._workflowId) return;
         const newActive = !this.isActive;
         try {
-            await setWorkflowActive({ workflowId: this.workflowId, isActive: newActive });
+            await setWorkflowActive({ workflowId: this._workflowId, isActive: newActive });
             this.workflow = { ...this.workflow, Is_Active__c: newActive };
             this._showToast(
                 newActive ? 'Activated' : 'Deactivated',
@@ -306,9 +332,9 @@ export default class AiWorkflowDesigner extends LightningElement {
     }
 
     async handleRunNow() {
-        if (!this.workflow?.Id) return;
+        if (!this._workflowId) return;
         try {
-            const execId = await runWorkflow({ workflowId: this.workflowId, triggerRecordId: null });
+            const execId = await runWorkflow({ workflowId: this._workflowId, triggerRecordId: null });
             this._showToast('Execution Started', 'Execution ID: ' + (execId ?? 'queued'), 'success');
             this.dispatchEvent(new CustomEvent('executionstarted', { detail: { execId } }));
         } catch (e) {
@@ -339,7 +365,9 @@ export default class AiWorkflowDesigner extends LightningElement {
     }
 
     get isEmpty() {
-        return !this.isLoading && (!this._drawflow || this.steps.length === 0);
+        if (this.isLoading || !this._workflowId) return false;
+        const nodes = this._drawflow?.export()?.drawflow?.Home?.data;
+        return !nodes || Object.keys(nodes).length === 0;
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
