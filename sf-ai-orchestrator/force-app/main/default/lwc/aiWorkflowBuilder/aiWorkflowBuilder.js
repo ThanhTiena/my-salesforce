@@ -12,6 +12,7 @@ export default class AiWorkflowBuilder extends LightningElement {
     @track activeWorkflowId  = null;
     @track selectedNode      = null;
     @track showNewModal      = false;
+    @track showTemplateModal = false;
     @track isCreating        = false;
 
     @track newWorkflowName   = '';
@@ -91,6 +92,24 @@ export default class AiWorkflowBuilder extends LightningElement {
         } finally {
             this.isCreating = false;
         }
+    }
+
+    // ─── Template Browser Modal ───────────────────────────────────────────────
+
+    handleShowTemplates() {
+        this.showTemplateModal = true;
+    }
+
+    closeTemplateModal() {
+        this.showTemplateModal = false;
+    }
+
+    async handleWorkflowCreated(event) {
+        const newId = event.detail?.workflowId;
+        this.showTemplateModal = false;
+        await refreshApex(this._workflowsWireResult);
+        this.activeWorkflowId = newId;
+        this.selectedNode = null;
     }
 
     // ─── Node palette → canvas ───────────────────────────────────────────────
