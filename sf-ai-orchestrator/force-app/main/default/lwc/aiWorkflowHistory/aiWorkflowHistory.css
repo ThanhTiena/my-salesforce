@@ -64,6 +64,20 @@
 .hist-meta    { font-size: 0.75rem; color: #706e6b; }
 .hist-summary { font-size: 0.75rem; color: #032d60; font-style: italic; }
 
+.hist-confirm {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: #fff3cd;
+    border-bottom: 1px solid #ffc107;
+}
+.hist-confirm-msg {
+    flex: 1;
+    font-size: 0.75rem;
+    color: #333;
+}
+
 .hist-empty {
     padding: 1.5rem;
     text-align: center;

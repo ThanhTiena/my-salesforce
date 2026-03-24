@@ -424,6 +424,130 @@ public with sharing class AIExecutionMonitorController {
         @AuraEnabled public String  rawResponse;
     }
 
+    /**
+     * Paged log query result returned by queryMongoLogs().
+     */
+    public class MongoLogPage {
+        @AuraEnabled public List<MongoLogRow> rows;
+        @AuraEnabled public Integer           totalCount;
+        @AuraEnabled public Integer           pageSize;
+        @AuraEnabled public Integer           pageNumber;
+    }
+
+    public class MongoLogRow {
+        @AuraEnabled public String  sfExecutionId;
+        @AuraEnabled public String  workflowName;
+        @AuraEnabled public Integer workflowVersion;
+        @AuraEnabled public String  status;
+        @AuraEnabled public String  initiatedBy;
+        @AuraEnabled public String  triggerRecordId;
+        @AuraEnabled public String  triggerObject;
+        @AuraEnabled public String  errorMessage;
+        @AuraEnabled public Integer retryCount;
+        @AuraEnabled public Integer totalTokensUsed;
+        @AuraEnabled public Decimal durationSeconds;
+        @AuraEnabled public Long    startedAtEpochMs;
+        @AuraEnabled public Long    completedAtEpochMs;
+        @AuraEnabled public List<MongoStepRow> steps;
+    }
+
+    public class MongoStepRow {
+        @AuraEnabled public String  sfStepExecutionId;
+        @AuraEnabled public String  stepName;
+        @AuraEnabled public String  stepType;
+        @AuraEnabled public Integer stepOrder;
+        @AuraEnabled public String  status;
+        @AuraEnabled public String  providerUsed;
+        @AuraEnabled public String  modelUsed;
+        @AuraEnabled public Integer tokensUsed;
+        @AuraEnabled public Integer promptTokens;
+        @AuraEnabled public Integer completionTokens;
+        @AuraEnabled public Integer durationMs;
+        @AuraEnabled public Integer httpStatusCode;
+        @AuraEnabled public Integer retryAttempt;
+        @AuraEnabled public String  errorMessage;
+        @AuraEnabled public String  parsedOutput;
+        @AuraEnabled public String  promptSent;
+        @AuraEnabled public String  rawResponse;
+    }
+
+    /**
+     * Paginated, searchable, filterable query over MongoDB execution logs.
+     *
+     * @param searchText    Partial workflow name match (null = all)
+     * @param statusFilter  COMPLETED|FAILED|RUNNING|RETRYING|ALL (null = all)
+     * @param daysBack      How many days to look back (null = all time)
+     * @param sortField     Column to sort: started_at|duration_seconds|total_tokens_used|workflow_name
+     * @param sortAsc       true = ascending, false = descending
+     * @param pageNumber    1-based page number
+     * @param pageSize      Rows per page (1-100)
+     */
+    @AuraEnabled(cacheable=false)
+    public static MongoLogPage queryMongoLogs(
+        String  searchText,
+        String  statusFilter,
+        Integer daysBack,
+        String  sortField,
+        Boolean sortAsc,
+        Integer pageNumber,
+        Integer pageSize
+    ) {
+        MongoDBLogService.LogPage svcPage = MongoDBLogService.queryExecutionLogs(
+            searchText, statusFilter, daysBack, sortField, sortAsc, pageNumber, pageSize
+        );
+
+        MongoLogPage out = new MongoLogPage();
+        out.totalCount = svcPage.totalCount;
+        out.pageSize   = svcPage.pageSize;
+        out.pageNumber = svcPage.pageNumber;
+        out.rows       = new List<MongoLogRow>();
+
+        for (MongoDBLogService.ExecutionLogRow r : svcPage.rows) {
+            MongoLogRow row = new MongoLogRow();
+            row.sfExecutionId    = r.sfExecutionId;
+            row.workflowName     = r.workflowName;
+            row.workflowVersion  = r.workflowVersion;
+            row.status           = r.status;
+            row.initiatedBy      = r.initiatedBy;
+            row.triggerRecordId  = r.triggerRecordId;
+            row.triggerObject    = r.triggerObject;
+            row.errorMessage     = r.errorMessage;
+            row.retryCount       = r.retryCount;
+            row.totalTokensUsed  = r.totalTokensUsed;
+            row.durationSeconds  = r.durationSeconds;
+            row.startedAtEpochMs   = r.startedAtEpochMs;
+            row.completedAtEpochMs = r.completedAtEpochMs;
+
+            List<MongoStepRow> steps = new List<MongoStepRow>();
+            if (r.steps != null) {
+                for (MongoDBLogService.StepSummary s : r.steps) {
+                    MongoStepRow sr = new MongoStepRow();
+                    sr.sfStepExecutionId = s.sfStepExecutionId;
+                    sr.stepName          = s.stepName;
+                    sr.stepType          = s.stepType;
+                    sr.stepOrder         = s.stepOrder;
+                    sr.status            = s.status;
+                    sr.providerUsed      = s.providerUsed;
+                    sr.modelUsed         = s.modelUsed;
+                    sr.tokensUsed        = s.tokensUsed;
+                    sr.promptTokens      = s.promptTokens;
+                    sr.completionTokens  = s.completionTokens;
+                    sr.durationMs        = s.durationMs;
+                    sr.httpStatusCode    = s.httpStatusCode;
+                    sr.retryAttempt      = s.retryAttempt;
+                    sr.errorMessage      = s.errorMessage;
+                    sr.parsedOutput      = s.parsedOutput;
+                    sr.promptSent        = s.promptSent;
+                    sr.rawResponse       = s.rawResponse;
+                    steps.add(sr);
+                }
+            }
+            row.steps = steps;
+            out.rows.add(row);
+        }
+        return out;
+    }
+
     // ─── Private Helpers ─────────────────────────────────────────────────────
 
     private static Boolean isMongoActive() {

@@ -30,9 +30,6 @@ const STATUS_BADGE = {
 
 export default class AiExecutionProgress extends LightningElement {
 
-    @api executionId;   // Salesforce AI_Execution__c Id — set by parent
-    @api onclose;       // truthy when parent wants a close button
-
     @track execution  = {};
     @track steps      = [];
     @track isLoading  = true;

@@ -2,5 +2,5 @@
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
     <flexiPage>AI_Execution_Monitor_Page</flexiPage>
     <label>Execution Monitor</label>
-    <motif>custom89: Monitor</motif>
+    <motif>Custom89: Monitor</motif>
 </CustomTab>

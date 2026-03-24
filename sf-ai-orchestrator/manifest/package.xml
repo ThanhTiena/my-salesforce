@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
-    <version>61.0</version>
+    <version>62.0</version>
 
     <!-- ── Apex Classes ─────────────────────────────────────────────────── -->
     <types>
@@ -17,24 +17,43 @@
         <members>AIWorkflowOrchestrator</members>
         <members>AIWorkflowQueueable</members>
         <members>AIExecutionMonitorController</members>
-        <!-- Test classes -->
+        <members>AIStepHandlerRegistry</members>
+        <members>AIStepHandler_AIInference</members>
+        <members>AIStepHandler_ApexAction</members>
+        <members>AIStepHandler_Decision</members>
+        <members>AIStepHandler_End</members>
+        <members>AIStepHandler_FlowLaunch</members>
+        <members>AIStepHandler_HttpCallout</members>
+        <members>AIStepHandler_Loop</members>
+        <members>AIStepHandler_Notification</members>
+        <members>AIStepHandler_Start</members>
+        <members>AIStepHandler_Subflow</members>
+        <members>AIStepHandler_Wait</members>
+        <members>MongoDBLogService</members>
+        <members>WorkflowService</members>
+        <members>WorkflowTemplateService</members>
         <members>AISecurityUtilTest</members>
         <members>AIInferenceServiceTest</members>
         <members>AIPromptTemplateServiceTest</members>
         <name>ApexClass</name>
     </types>
 
-    <!-- ── Custom Objects ───────────────────────────────────────────────── -->
+    <!-- ── Custom Objects and Custom Metadata Types ─────────────────────── -->
     <types>
         <members>AI_Workflow__c</members>
         <members>AI_Step__c</members>
         <members>AI_Execution__c</members>
         <members>AI_Step_Execution__c</members>
+        <members>AI_Workflow_Version__c</members>
+        <members>AI_Provider__mdt</members>
+        <members>AI_MongoDB_Config__mdt</members>
+        <members>AI_Step_Type__mdt</members>
         <name>CustomObject</name>
     </types>
 
     <!-- ── Custom Fields — AI_Workflow__c ──────────────────────────────── -->
     <types>
+        <members>AI_Workflow__c.Canvas_JSON__c</members>
         <members>AI_Workflow__c.Description__c</members>
         <members>AI_Workflow__c.Is_Active__c</members>
         <members>AI_Workflow__c.Last_Executed__c</members>
@@ -44,22 +63,28 @@
         <members>AI_Workflow__c.Total_Executions__c</members>
         <members>AI_Workflow__c.Trigger_Condition__c</members>
         <members>AI_Workflow__c.Trigger_Object__c</members>
+        <members>AI_Workflow__c.Trigger_Type__c</members>
         <members>AI_Workflow__c.Version__c</members>
-        <!-- Custom Fields — AI_Step__c -->
+        <!-- AI_Step__c -->
         <members>AI_Step__c.AI_Provider_Developer_Name__c</members>
         <members>AI_Step__c.AI_Workflow__c</members>
+        <members>AI_Step__c.Canvas_X__c</members>
+        <members>AI_Step__c.Canvas_Y__c</members>
         <members>AI_Step__c.Condition__c</members>
         <members>AI_Step__c.Is_Active__c</members>
         <members>AI_Step__c.Max_Tokens_Override__c</members>
         <members>AI_Step__c.Model_Override__c</members>
+        <members>AI_Step__c.Next_Step_False__c</members>
+        <members>AI_Step__c.Next_Step_True__c</members>
         <members>AI_Step__c.Order__c</members>
         <members>AI_Step__c.Output_Field__c</members>
         <members>AI_Step__c.Prompt_Template__c</members>
         <members>AI_Step__c.Response_Format__c</members>
+        <members>AI_Step__c.Step_Config_JSON__c</members>
         <members>AI_Step__c.Step_Type__c</members>
         <members>AI_Step__c.System_Prompt__c</members>
         <members>AI_Step__c.Temperature_Override__c</members>
-        <!-- Custom Fields — AI_Execution__c -->
+        <!-- AI_Execution__c -->
         <members>AI_Execution__c.AI_Workflow__c</members>
         <members>AI_Execution__c.Completed_At__c</members>
         <members>AI_Execution__c.Context_JSON__c</members>
@@ -72,7 +97,7 @@
         <members>AI_Execution__c.Total_Tokens_Used__c</members>
         <members>AI_Execution__c.Trigger_Object__c</members>
         <members>AI_Execution__c.Trigger_Record_Id__c</members>
-        <!-- Custom Fields — AI_Step_Execution__c -->
+        <!-- AI_Step_Execution__c -->
         <members>AI_Step_Execution__c.AI_Execution__c</members>
         <members>AI_Step_Execution__c.AI_Step__c</members>
         <members>AI_Step_Execution__c.Completion_Tokens__c</members>
@@ -88,7 +113,7 @@
         <members>AI_Step_Execution__c.Retry_Attempt__c</members>
         <members>AI_Step_Execution__c.Status__c</members>
         <members>AI_Step_Execution__c.Tokens_Used__c</members>
-        <!-- Custom Fields — AI_Provider__mdt -->
+        <!-- AI_Provider__mdt -->
         <members>AI_Provider__mdt.API_Version__c</members>
         <members>AI_Provider__mdt.Custom_Headers_JSON__c</members>
         <members>AI_Provider__mdt.Default_Model__c</members>
@@ -102,23 +127,77 @@
         <members>AI_Provider__mdt.Supports_Streaming__c</members>
         <members>AI_Provider__mdt.Temperature__c</members>
         <members>AI_Provider__mdt.Timeout_Seconds__c</members>
+        <!-- AI_Step_Type__mdt -->
+        <members>AI_Step_Type__mdt.Category__c</members>
+        <members>AI_Step_Type__mdt.Handler_Class_Name__c</members>
+        <members>AI_Step_Type__mdt.Has_Input__c</members>
+        <members>AI_Step_Type__mdt.Has_Output__c</members>
+        <members>AI_Step_Type__mdt.Icon__c</members>
+        <members>AI_Step_Type__mdt.Sort_Order__c</members>
+        <!-- AI_Workflow_Version__c -->
+        <members>AI_Workflow_Version__c.AI_Workflow__c</members>
+        <members>AI_Workflow_Version__c.Canvas_JSON__c</members>
+        <members>AI_Workflow_Version__c.Change_Summary__c</members>
+        <members>AI_Workflow_Version__c.Saved_By__c</members>
+        <members>AI_Workflow_Version__c.Version_Number__c</members>
         <name>CustomField</name>
     </types>
 
-    <!-- ── Named Credentials ─────────────────────────────────────────────── -->
+    <!-- ── Custom Metadata Records ────────────────────────────────────────── -->
     <types>
-        <members>AI_OpenAI</members>
-        <members>AI_Anthropic</members>
-        <members>AI_Google_Gemini</members>
-        <members>AI_Cohere</members>
-        <members>AI_Mistral</members>
-        <name>NamedCredential</name>
+        <members>AI_Step_Type.AI_INFERENCE</members>
+        <members>AI_Step_Type.APEX_ACTION</members>
+        <members>AI_Step_Type.DECISION</members>
+        <members>AI_Step_Type.END</members>
+        <members>AI_Step_Type.FLOW_LAUNCH</members>
+        <members>AI_Step_Type.HTTP_CALLOUT</members>
+        <members>AI_Step_Type.LOOP</members>
+        <members>AI_Step_Type.NOTIFICATION</members>
+        <members>AI_Step_Type.START</members>
+        <members>AI_Step_Type.SUBFLOW</members>
+        <members>AI_Step_Type.WAIT</members>
+        <name>CustomMetadata</name>
     </types>
 
     <!-- ── Lightning Web Components ──────────────────────────────────────── -->
     <types>
         <members>aiExecutionMonitor</members>
+        <members>aiExecutionProgress</members>
+        <members>aiNodePalette</members>
+        <members>aiOrchestrationDashboard</members>
+        <members>aiOrchestratorHome</members>
+        <members>aiOrchestratorSettings</members>
+        <members>aiPropertiesPanel</members>
+        <members>aiTemplateBrowser</members>
+        <members>aiWorkflowBuilder</members>
+        <members>aiWorkflowDesigner</members>
+        <members>aiWorkflowHistory</members>
+        <members>aiWorkflowRunButton</members>
         <name>LightningComponentBundle</name>
+    </types>
+
+    <!-- ── Flexipages ─────────────────────────────────────────────────────── -->
+    <types>
+        <members>AI_Orchestrator_Home_Page</members>
+        <members>AI_Workflow_Builder_Page</members>
+        <members>AI_Execution_Monitor_Page</members>
+        <members>AI_Orchestrator_Settings_Page</members>
+        <name>FlexiPage</name>
+    </types>
+
+    <!-- ── Custom Tabs ────────────────────────────────────────────────────── -->
+    <types>
+        <members>AI_Orchestrator_Home</members>
+        <members>AI_Workflow_Builder</members>
+        <members>AI_Execution_Monitor</members>
+        <members>AI_Orchestrator_Settings</members>
+        <name>CustomTab</name>
+    </types>
+
+    <!-- ── Custom Application ─────────────────────────────────────────────── -->
+    <types>
+        <members>AI_Orchestrator</members>
+        <name>CustomApplication</name>
     </types>
 
     <!-- ── Permission Sets ───────────────────────────────────────────────── -->

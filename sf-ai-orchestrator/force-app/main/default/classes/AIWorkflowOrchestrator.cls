@@ -186,7 +186,7 @@ public with sharing class AIWorkflowOrchestrator {
     private static AI_Workflow__c loadWorkflow(Id workflowId) {
         AISecurityUtil.assertReadable(AI_Workflow__c.SObjectType);
         List<AI_Workflow__c> wfs = [
-            SELECT Id, Name, Trigger_Object__c, Is_Active__c,
+            SELECT Id, Name, Trigger_Object__c, Is_Active__c, Version__c,
                    Max_Retries__c, Retry_Delay_Seconds__c, Total_Executions__c
             FROM AI_Workflow__c
             WHERE Id = :workflowId AND Is_Active__c = true

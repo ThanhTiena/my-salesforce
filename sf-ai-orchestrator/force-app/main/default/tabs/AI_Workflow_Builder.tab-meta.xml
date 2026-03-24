@@ -2,5 +2,5 @@
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
     <flexiPage>AI_Workflow_Builder_Page</flexiPage>
     <label>Workflow Builder</label>
-    <motif>custom87: Flow</motif>
+    <motif>Custom87: Flow</motif>
 </CustomTab>

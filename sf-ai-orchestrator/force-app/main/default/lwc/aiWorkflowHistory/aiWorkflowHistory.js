@@ -5,15 +5,12 @@ import restoreVersion    from '@salesforce/apex/WorkflowService.restoreVersion';
 
 export default class AiWorkflowHistory extends LightningElement {
 
-    @api workflowId;
+    @track versions          = [];
+    @track isLoading         = true;
+    @track restoringId       = null;
+    @track pendingRestoreId  = null;  // awaiting user confirmation
 
-    @track versions      = [];
-    @track isLoading     = true;
-    @track restoringId   = null;
-
-    connectedCallback() {
-        if (this.workflowId) this._load();
-    }
+    _workflowId = null;
 
     @api
     get workflowId() { return this._workflowId; }
@@ -22,7 +19,9 @@ export default class AiWorkflowHistory extends LightningElement {
         if (val) this._load();
     }
 
-    _workflowId = null;
+    get hasVersions()    { return this.versions.length > 0; }
+    get showConfirm()    { return !!this.pendingRestoreId; }
+    get isRestoring()    { return !!this.restoringId; }
 
     async _load() {
         this.isLoading = true;
@@ -43,12 +42,20 @@ export default class AiWorkflowHistory extends LightningElement {
         }
     }
 
-    get hasVersions() { return this.versions.length > 0; }
+    handleRestore(event) {
+        this.pendingRestoreId = event.currentTarget.dataset.id;
+    }
 
-    async handleRestore(event) {
-        const versionId = event.currentTarget.dataset.id;
-        // eslint-disable-next-line no-alert
-        if (!confirm('Restore this version? Your current canvas will be overwritten. Save first if needed.')) return;
+    handleConfirmRestore() {
+        this._doRestore(this.pendingRestoreId);
+        this.pendingRestoreId = null;
+    }
+
+    handleCancelRestore() {
+        this.pendingRestoreId = null;
+    }
+
+    async _doRestore(versionId) {
         this.restoringId = versionId;
         try {
             await restoreVersion({ workflowId: this._workflowId, versionId });
@@ -61,13 +68,8 @@ export default class AiWorkflowHistory extends LightningElement {
         }
     }
 
-    handleClose() {
-        this.dispatchEvent(new CustomEvent('close'));
-    }
-
-    handleRefresh() {
-        this._load();
-    }
+    handleClose()   { this.dispatchEvent(new CustomEvent('close')); }
+    handleRefresh() { this._load(); }
 
     _toast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message: message ?? '', variant }));

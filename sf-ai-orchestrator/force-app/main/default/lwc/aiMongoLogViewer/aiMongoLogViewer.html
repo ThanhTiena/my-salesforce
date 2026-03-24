@@ -1,0 +1,471 @@
+<template>
+<div class="log-root">
+
+    <!-- ── Toolbar ─────────────────────────────────────────────────────── -->
+    <div class="log-toolbar">
+        <div class="log-toolbar-left">
+            <lightning-input
+                type="search"
+                label=""
+                placeholder="Search workflow name..."
+                value={searchText}
+                onchange={handleSearchChange}
+                class="log-search">
+            </lightning-input>
+
+            <lightning-combobox
+                label=""
+                value={statusFilter}
+                options={statusOptions}
+                onchange={handleStatusChange}
+                class="log-filter-combo">
+            </lightning-combobox>
+
+            <lightning-combobox
+                label=""
+                value={daysBack}
+                options={periodOptions}
+                onchange={handlePeriodChange}
+                class="log-filter-combo">
+            </lightning-combobox>
+        </div>
+
+        <div class="log-toolbar-right">
+            <lightning-combobox
+                label=""
+                value={pageSize}
+                options={pageSizeOptions}
+                onchange={handlePageSizeChange}
+                class="log-filter-combo log-filter-combo--sm">
+            </lightning-combobox>
+
+            <lightning-button-icon
+                icon-name="utility:filterList"
+                alternative-text="Clear filters"
+                title="Clear filters"
+                onclick={handleClearFilters}>
+            </lightning-button-icon>
+
+            <lightning-button-icon
+                icon-name="utility:download"
+                alternative-text="Export CSV"
+                title="Export current page as CSV"
+                onclick={handleExportCsv}>
+            </lightning-button-icon>
+
+            <lightning-button-icon
+                icon-name="utility:refresh"
+                alternative-text="Refresh"
+                title="Refresh"
+                onclick={handleRefresh}>
+            </lightning-button-icon>
+
+            <template if:true={isLoading}>
+                <lightning-spinner size="small" alternative-text="Loading"></lightning-spinner>
+            </template>
+        </div>
+    </div>
+
+    <!-- ── Result count ────────────────────────────────────────────────── -->
+    <div class="log-result-bar">
+        <span class="log-result-count">{paginationLabel}</span>
+    </div>
+
+    <!-- ── Main layout: table + drawer ─────────────────────────────────── -->
+    <div class="log-body">
+
+        <!-- ── Data table ──────────────────────────────────────────────── -->
+        <div class="log-table-wrap">
+            <template if:true={hasRows}>
+                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout log-table">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <!-- Workflow -->
+                            <th class="col-hd col-hd--workflow">
+                                <button
+                                    class={sortClassWorkflow}
+                                    data-field="workflowName"
+                                    onclick={handleSort}>
+                                    Workflow
+                                    <lightning-icon icon-name={sortIconWorkflow} size="xx-small" class="sort-icon"></lightning-icon>
+                                </button>
+                            </th>
+                            <!-- Status -->
+                            <th class="col-hd col-hd--status">
+                                <button
+                                    class={sortClassStatus}
+                                    data-field="status"
+                                    onclick={handleSort}>
+                                    Status
+                                    <lightning-icon icon-name={sortIconStatus} size="xx-small" class="sort-icon"></lightning-icon>
+                                </button>
+                            </th>
+                            <!-- Started -->
+                            <th class="col-hd col-hd--started">
+                                <button
+                                    class={sortClassStarted}
+                                    data-field="startedAt"
+                                    onclick={handleSort}>
+                                    Started
+                                    <lightning-icon icon-name={sortIconStarted} size="xx-small" class="sort-icon"></lightning-icon>
+                                </button>
+                            </th>
+                            <!-- Duration -->
+                            <th class="col-hd col-hd--duration">
+                                <button
+                                    class={sortClassDuration}
+                                    data-field="durationSeconds"
+                                    onclick={handleSort}>
+                                    Duration
+                                    <lightning-icon icon-name={sortIconDuration} size="xx-small" class="sort-icon"></lightning-icon>
+                                </button>
+                            </th>
+                            <!-- Tokens -->
+                            <th class="col-hd col-hd--tokens">
+                                <button
+                                    class={sortClassTokens}
+                                    data-field="totalTokensUsed"
+                                    onclick={handleSort}>
+                                    Tokens
+                                    <lightning-icon icon-name={sortIconTokens} size="xx-small" class="sort-icon"></lightning-icon>
+                                </button>
+                            </th>
+                            <!-- Steps -->
+                            <th class="col-hd col-hd--steps">Steps</th>
+                            <!-- Retries -->
+                            <th class="col-hd col-hd--retries">Retries</th>
+                            <!-- Initiated By -->
+                            <th class="col-hd col-hd--user">Initiated By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={rows} for:item="row">
+                            <tr key={row.sfExecutionId}
+                                class="log-row"
+                                data-id={row.sfExecutionId}
+                                onclick={handleRowClick}>
+
+                                <!-- Workflow -->
+                                <td class="col-workflow">
+                                    <div class="cell-workflow">
+                                        <span class="wf-name">{row.workflowName}</span>
+                                        <span class="wf-ver">v{row.workflowVersion}</span>
+                                    </div>
+                                    <div class="cell-execid">
+                                        <span class="exec-id-text">{row.sfExecutionId}</span>
+                                        <button
+                                            class="copy-btn"
+                                            title="Copy execution ID"
+                                            data-id={row.sfExecutionId}
+                                            onclick={handleCopyExecId}>
+                                            <lightning-icon icon-name="utility:copy" size="xx-small"></lightning-icon>
+                                        </button>
+                                    </div>
+                                </td>
+
+                                <!-- Status -->
+                                <td class="col-status">
+                                    <span class={row.statusClass}>{row.status}</span>
+                                    <template if:true={row.hasError}>
+                                        <lightning-icon
+                                            icon-name="utility:error"
+                                            size="xx-small"
+                                            class="error-flag"
+                                            title={row.errorMessage}>
+                                        </lightning-icon>
+                                    </template>
+                                </td>
+
+                                <!-- Started -->
+                                <td class="col-started">{row.startedAtDisplay}</td>
+
+                                <!-- Duration -->
+                                <td class="col-duration">{row.durationDisplay}</td>
+
+                                <!-- Tokens -->
+                                <td class="col-tokens">{row.tokensDisplay}</td>
+
+                                <!-- Steps (dot strip) -->
+                                <td class="col-steps">
+                                    <div class="step-strip">
+                                        <template for:each={row.steps} for:item="s">
+                                            <span key={s.rowKey} class={s.dotClass} title={s.stepName}></span>
+                                        </template>
+                                    </div>
+                                </td>
+
+                                <!-- Retries -->
+                                <td class="col-retries">{row.retryCount}</td>
+
+                                <!-- Initiated By -->
+                                <td class="col-user">{row.initiatedBy}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+
+            <!-- Empty state -->
+            <template if:false={hasRows}>
+                <template if:false={isLoading}>
+                    <div class="log-empty">
+                        <lightning-icon icon-name="utility:database" size="large" class="log-empty-icon"></lightning-icon>
+                        <p class="log-empty-title">No execution logs found</p>
+                        <p class="log-empty-hint">Try adjusting the filters or date range above.</p>
+                    </div>
+                </template>
+            </template>
+        </div>
+
+        <!-- ── Detail Drawer ────────────────────────────────────────────── -->
+        <template if:true={showDrawer}>
+            <div class="log-drawer">
+
+                <!-- Drawer header -->
+                <div class="drawer-header">
+                    <div class="drawer-title-wrap">
+                        <span class="drawer-title">{selectedRow.workflowName}</span>
+                        <span class={selectedRow.statusClass}>{selectedRow.status}</span>
+                    </div>
+                    <lightning-button-icon
+                        icon-name="utility:close"
+                        alternative-text="Close"
+                        size="small"
+                        onclick={handleCloseDrawer}>
+                    </lightning-button-icon>
+                </div>
+
+                <!-- Drawer tab bar -->
+                <div class="drawer-tabs">
+                    <button class={drawerTabOverviewClass} data-tab="overview" onclick={handleDrawerTab}>Overview</button>
+                    <button class={drawerTabStepsClass}    data-tab="steps"    onclick={handleDrawerTab}>
+                        Steps ({stepCount})
+                    </button>
+                    <button class={drawerTabRawClass}      data-tab="raw"      onclick={handleDrawerTab}>Raw JSON</button>
+                </div>
+
+                <!-- ── Overview tab ──────────────────────────────────────── -->
+                <template if:true={drawerTabOverview}>
+                    <div class="drawer-body">
+
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Execution ID</span>
+                                <span class="detail-value detail-value--mono">{selectedRow.sfExecutionId}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Workflow Version</span>
+                                <span class="detail-value">v{selectedRow.workflowVersion}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Started</span>
+                                <span class="detail-value">{selectedRow.startedAtDisplay}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Completed</span>
+                                <span class="detail-value">{selectedRow.completedAtDisplay}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Duration</span>
+                                <span class="detail-value">{selectedRow.durationDisplay}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total Tokens</span>
+                                <span class="detail-value">{selectedRow.tokensDisplay}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Initiated By</span>
+                                <span class="detail-value">{selectedRow.initiatedBy}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Retry Count</span>
+                                <span class="detail-value">{selectedRow.retryCount}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Trigger Object</span>
+                                <span class="detail-value">{selectedRow.triggerObject}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Trigger Record ID</span>
+                                <span class="detail-value detail-value--mono">{selectedRow.triggerRecordId}</span>
+                            </div>
+                        </div>
+
+                        <template if:true={selectedRow.hasError}>
+                            <div class="error-box">
+                                <lightning-icon icon-name="utility:error" size="small" class="error-box-icon"></lightning-icon>
+                                <pre class="error-box-text">{selectedRow.errorMessage}</pre>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- ── Steps tab ─────────────────────────────────────────── -->
+                <template if:true={drawerTabSteps}>
+                    <div class="drawer-body">
+                        <template if:true={selectedRow.steps.length}>
+                            <ul class="step-list">
+                                <template for:each={selectedRow.steps} for:item="s">
+                                    <li key={s.rowKey} class="step-item">
+                                        <!-- Step summary row -->
+                                        <div class="step-row"
+                                             data-step-id={s.rowKey}
+                                             onclick={handleStepClick}>
+                                            <span class={s.dotClass}></span>
+                                            <span class="step-order">{s.stepOrder}</span>
+                                            <div class="step-info">
+                                                <span class="step-name">{s.stepName}</span>
+                                                <span class="step-type-badge">{s.stepType}</span>
+                                            </div>
+                                            <div class="step-meta">
+                                                <span class="step-dur">{s.durationDisplay}</span>
+                                                <template if:true={s.providerUsed}>
+                                                    <span class="step-provider">{s.providerUsed}</span>
+                                                </template>
+                                                <span class="step-tok">{s.tokensDisplay} tok</span>
+                                            </div>
+                                            <lightning-icon
+                                                icon-name="utility:chevronright"
+                                                size="xx-small"
+                                                class="step-chevron">
+                                            </lightning-icon>
+                                        </div>
+
+                                        <!-- Step detail panel (expanded) -->
+                                        <template if:true={s.isActiveStep}>
+                                                <div class="step-detail">
+                                                    <div class="step-detail-header">
+                                                        <span class="step-detail-title">Step Detail</span>
+                                                        <lightning-button-icon
+                                                            icon-name="utility:copy"
+                                                            size="x-small"
+                                                            alternative-text="Copy step JSON"
+                                                            title="Copy step JSON"
+                                                            onclick={handleCopyStepJson}>
+                                                        </lightning-button-icon>
+                                                        <lightning-button-icon
+                                                            icon-name="utility:close"
+                                                            size="x-small"
+                                                            alternative-text="Close"
+                                                            onclick={handleCloseStepDetail}>
+                                                        </lightning-button-icon>
+                                                    </div>
+
+                                                    <div class="step-detail-grid">
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">Model</span>
+                                                            <span class="detail-value">{s.modelUsed}</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">HTTP Status</span>
+                                                            <span class="detail-value">{s.httpStatusCode}</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">Prompt Tokens</span>
+                                                            <span class="detail-value">{s.promptTokens}</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">Completion Tokens</span>
+                                                            <span class="detail-value">{s.completionTokens}</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">Retry Attempt</span>
+                                                            <span class="detail-value">{s.retryAttempt}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <template if:true={s.hasError}>
+                                                        <div class="error-box slds-m-top_x-small">
+                                                            <pre class="error-box-text">{s.errorMessage}</pre>
+                                                        </div>
+                                                    </template>
+
+                                                    <template if:true={s.hasPrompt}>
+                                                        <div class="raw-block">
+                                                            <span class="raw-block-label">Prompt Sent</span>
+                                                            <pre class="raw-block-pre">{s.promptSent}</pre>
+                                                        </div>
+                                                    </template>
+
+                                                    <template if:true={s.hasOutput}>
+                                                        <div class="raw-block">
+                                                            <span class="raw-block-label">Parsed Output</span>
+                                                            <pre class="raw-block-pre">{s.parsedOutput}</pre>
+                                                        </div>
+                                                    </template>
+
+                                                    <template if:true={s.hasRaw}>
+                                                        <div class="raw-block">
+                                                            <span class="raw-block-label">Raw Response</span>
+                                                            <pre class="raw-block-pre">{s.rawResponse}</pre>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                        <template if:false={selectedRow.steps.length}>
+                            <p class="drawer-empty">No step data available in MongoDB for this execution.</p>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- ── Raw JSON tab ──────────────────────────────────────── -->
+                <template if:true={drawerTabRaw}>
+                    <div class="drawer-body">
+                        <div class="raw-toolbar">
+                            <span class="raw-toolbar-label">Full execution document from MongoDB</span>
+                            <lightning-button-icon
+                                icon-name="utility:copy"
+                                size="small"
+                                alternative-text="Copy JSON"
+                                title="Copy JSON to clipboard"
+                                onclick={handleCopyJson}>
+                            </lightning-button-icon>
+                        </div>
+                        <pre class="raw-json">{selectedRowJson}</pre>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <!-- ── Pagination ───────────────────────────────────────────────────── -->
+    <div class="log-pagination">
+        <lightning-button-icon
+            icon-name="utility:first"
+            alternative-text="First page"
+            title="First page"
+            disabled={isFirstPage}
+            onclick={handleFirstPage}>
+        </lightning-button-icon>
+        <lightning-button-icon
+            icon-name="utility:chevronleft"
+            alternative-text="Previous page"
+            title="Previous page"
+            disabled={isFirstPage}
+            onclick={handlePrevPage}>
+        </lightning-button-icon>
+
+        <span class="pagination-label">Page {pageNumber} of {totalPages}</span>
+
+        <lightning-button-icon
+            icon-name="utility:chevronright"
+            alternative-text="Next page"
+            title="Next page"
+            disabled={isLastPage}
+            onclick={handleNextPage}>
+        </lightning-button-icon>
+        <lightning-button-icon
+            icon-name="utility:last"
+            alternative-text="Last page"
+            title="Last page"
+            disabled={isLastPage}
+            onclick={handleLastPage}>
+        </lightning-button-icon>
+    </div>
+
+</div>
+</template>
