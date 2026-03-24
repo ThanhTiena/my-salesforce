@@ -115,12 +115,30 @@ public with sharing class WorkflowService {
         }
 
         // Auto-increment version on each save
-        List<AI_Workflow__c> existing = [SELECT Version__c FROM AI_Workflow__c WHERE Id = :workflow.Id LIMIT 1];
+        List<AI_Workflow__c> existing = [SELECT Version__c, Canvas_JSON__c FROM AI_Workflow__c WHERE Id = :workflow.Id LIMIT 1];
+        Decimal newVersion = 1;
         if (!existing.isEmpty()) {
-            workflow.Version__c = (existing[0].Version__c != null ? existing[0].Version__c : 0) + 1;
+            newVersion = (existing[0].Version__c != null ? existing[0].Version__c : 0) + 1;
+            workflow.Version__c = newVersion;
         }
 
         update workflow;
+
+        // Write version snapshot (best-effort — don't fail the save if this fails)
+        try {
+            if (String.isNotBlank(workflow.Canvas_JSON__c)) {
+                AI_Workflow_Version__c snap = new AI_Workflow_Version__c(
+                    Name             = 'v' + newVersion.intValue(),
+                    AI_Workflow__c   = workflow.Id,
+                    Version_Number__c = newVersion,
+                    Canvas_JSON__c   = workflow.Canvas_JSON__c,
+                    Saved_By__c      = UserInfo.getUserId()
+                );
+                insert snap;
+            }
+        } catch (Exception e) {
+            // Snapshot failure must never break the save
+        }
     }
 
     /**
@@ -233,6 +251,54 @@ public with sharing class WorkflowService {
             LIMIT 1
         ];
         return execs.isEmpty() ? null : execs[0].Id;
+    }
+
+    /**
+     * Returns the version history for a workflow (most recent first).
+     */
+    @AuraEnabled(cacheable=false)
+    public static List<AI_Workflow_Version__c> getVersionHistory(Id workflowId) {
+        AISecurityUtil.assertReadable(AI_Workflow_Version__c.SObjectType);
+        return [
+            SELECT Id, Name, Version_Number__c, Saved_By__r.Name, Change_Summary__c, CreatedDate
+            FROM AI_Workflow_Version__c
+            WHERE AI_Workflow__c = :workflowId
+            ORDER BY Version_Number__c DESC
+            LIMIT 50
+        ];
+    }
+
+    /**
+     * Restores a previous canvas snapshot onto the workflow record.
+     * Does NOT create a new version snapshot — the next manual save will do that.
+     */
+    @AuraEnabled
+    public static void restoreVersion(Id workflowId, Id versionId) {
+        AISecurityUtil.assertUpdatable(AI_Workflow__c.SObjectType);
+        AISecurityUtil.assertReadable(AI_Workflow_Version__c.SObjectType);
+        List<AI_Workflow_Version__c> versions = [
+            SELECT Canvas_JSON__c FROM AI_Workflow_Version__c
+            WHERE Id = :versionId AND AI_Workflow__c = :workflowId LIMIT 1
+        ];
+        if (versions.isEmpty()) {
+            throw new AuraHandledException('Version not found.');
+        }
+        update new AI_Workflow__c(Id = workflowId, Canvas_JSON__c = versions[0].Canvas_JSON__c);
+    }
+
+    /**
+     * Returns full AI_Provider__mdt records for the Settings panel.
+     */
+    @AuraEnabled(cacheable=true)
+    public static List<AI_Provider__mdt> getProviderDetails() {
+        return [
+            SELECT DeveloperName, MasterLabel, Provider_Type__c, Default_Model__c,
+                   Named_Credential_API_Name__c, Rate_Limit_RPM__c, Rate_Limit_TPM__c,
+                   Max_Tokens__c, Temperature__c, Is_Active__c, Endpoint_URL__c
+            FROM AI_Provider__mdt
+            WHERE Is_Active__c = true
+            ORDER BY MasterLabel ASC
+        ];
     }
 
     /**

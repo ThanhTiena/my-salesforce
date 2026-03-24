@@ -1,0 +1,196 @@
+/* ── Root ── */
+.home-root {
+    padding: 1.5rem;
+    background: #f3f2f2;
+    min-height: 100vh;
+    font-family: 'Salesforce Sans', Arial, sans-serif;
+}
+
+/* ── Hero header ── */
+.home-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    background: #032d60;
+    border-radius: 10px;
+    padding: 1.5rem 2rem;
+    color: #fff;
+}
+.hero-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.hero-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 0.25rem;
+}
+.hero-subtitle {
+    font-size: 0.9rem;
+    color: #c9daf8;
+    margin: 0;
+}
+
+/* ── Loading ── */
+.home-loading {
+    display: flex;
+    justify-content: center;
+    padding: 4rem;
+}
+
+/* ── KPI strip ── */
+.kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.kpi-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.1rem 1rem;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    border-top: 4px solid #dddbda;
+    transition: box-shadow 0.2s;
+}
+.kpi-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.kpi-card--success { border-top-color: #2e844a; }
+.kpi-card--danger  { border-top-color: #ba0517; }
+.kpi-card--running { border-top-color: #1b96ff; }
+.kpi-card--tokens  { border-top-color: #9050e9; }
+
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #032d60;
+    line-height: 1;
+}
+.kpi-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #706e6b;
+}
+
+/* ── Body grid ── */
+.home-body {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* ── Cards ── */
+.home-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+.home-card--wide {
+    min-width: 0;
+}
+.home-card--progress {
+    margin-top: 0;
+}
+
+.card-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+.card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #032d60;
+    margin: 0;
+}
+.card-hint {
+    font-size: 0.75rem;
+    color: #706e6b;
+}
+
+/* ── Recent runs table ── */
+.home-table {
+    width: 100%;
+    font-size: 0.8rem;
+}
+.home-table th {
+    background: #f8f9fa;
+    font-weight: 700;
+    padding: 0.5rem 0.75rem;
+    color: #444;
+    white-space: nowrap;
+}
+.home-table td {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
+}
+.run-name { font-weight: 600; color: #032d60; }
+.run-meta { color: #706e6b; white-space: nowrap; }
+
+/* ── Status badges ── */
+.home-badge {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ── Active workflow list ── */
+.workflow-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.workflow-row {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.12s;
+}
+.workflow-row:last-child { border-bottom: none; }
+.workflow-row:hover { background: #f8f9fa; }
+.wf-name {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #032d60;
+}
+.wf-meta {
+    display: block;
+    font-size: 0.72rem;
+    color: #706e6b;
+    margin-top: 0.1rem;
+}
+
+/* ── Empty state ── */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1.5rem;
+    color: #706e6b;
+}
+.empty-icon { margin-bottom: 0.75rem; opacity: 0.4; }
+.empty-title { font-size: 1rem; font-weight: 600; margin: 0 0 0.25rem; }
+.empty-hint  { font-size: 0.8rem; margin: 0; text-align: center; }
+
+/* ── Run hint ── */
+.run-hint {
+    font-size: 0.75rem;
+    color: #706e6b;
+    margin-top: 0.4rem;
+}

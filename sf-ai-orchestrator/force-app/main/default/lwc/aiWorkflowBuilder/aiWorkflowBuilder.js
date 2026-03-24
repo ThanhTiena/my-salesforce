@@ -10,8 +10,10 @@ export default class AiWorkflowBuilder extends LightningElement {
 
     // ─── State ────────────────────────────────────────────────────────────────
 
-    @track activeWorkflowId  = null;
-    @track selectedNode      = null;
+    @track activeWorkflowId    = null;
+    @track selectedNode        = null;
+    @track activeWorkflow      = null;   // full workflow record, passed to properties panel
+    @track showVersionHistory  = false;
     @track showNewModal      = false;
     @track showTemplateModal = false;  // shows the template list
     @track showCloneModal    = false;  // shows the "name your copy" dialog
@@ -64,6 +66,11 @@ export default class AiWorkflowBuilder extends LightningElement {
     handleWorkflowSelect(event) {
         this.activeWorkflowId = event.detail.value;
         this.selectedNode     = null;
+        this.activeWorkflow   = null;
+    }
+
+    handleWorkflowLoaded(event) {
+        this.activeWorkflow = event.detail?.workflow ?? null;
     }
 
     // ─── New Workflow Modal ───────────────────────────────────────────────────
@@ -217,6 +224,17 @@ export default class AiWorkflowBuilder extends LightningElement {
 
     handleExecutionPanelClose() {
         this.activeExecutionId = null;
+    }
+
+    handleShowHistory()   { this.showVersionHistory = true;  }
+    handleCloseHistory()  { this.showVersionHistory = false; }
+    handleVersionRestored() {
+        this.showVersionHistory = false;
+        // Reload the canvas by toggling workflowId
+        const id = this.activeWorkflowId;
+        this.activeWorkflowId = null;
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => { this.activeWorkflowId = id; }, 0);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

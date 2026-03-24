@@ -121,50 +121,14 @@
             </div>
         </template>
 
-        <!-- Step drill-down modal -->
-        <template if:true={showStepModal}>
-            <section class="slds-modal slds-fade-in-open">
-                <div class="slds-modal__container">
-                    <header class="slds-modal__header">
-                        <h2 class="slds-modal__title">Step Executions</h2>
-                        <lightning-button-icon
-                            icon-name="utility:close"
-                            alternative-text="Close"
-                            onclick={handleCloseModal}
-                            class="slds-modal__close">
-                        </lightning-button-icon>
-                    </header>
-                    <div class="slds-modal__content slds-p-around_medium">
-                        <template if:true={hasStepData}>
-                            <table class="slds-table slds-table_cell-buffer slds-table_bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Step</th>
-                                        <th>Type</th>
-                                        <th>Status</th>
-                                        <th>Provider</th>
-                                        <th>Tokens</th>
-                                        <th>Duration (ms)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template for:each={stepExecutions} for:item="s">
-                                        <tr key={s.stepExecId}>
-                                            <td>{s.stepName}</td>
-                                            <td>{s.stepType}</td>
-                                            <td>{s.status}</td>
-                                            <td>{s.providerUsed}</td>
-                                            <td>{s.tokensUsed}</td>
-                                            <td>{s.durationMs}</td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </template>
-                    </div>
-                </div>
-            </section>
-            <div class="slds-backdrop slds-backdrop_open"></div>
+        <!-- Inline step progress panel (replaces old modal) -->
+        <template if:true={showProgressPane}>
+            <div class="section-card">
+                <c-ai-execution-progress
+                    execution-id={activeExecutionId}
+                    onclose={handleCloseProgress}>
+                </c-ai-execution-progress>
+            </div>
         </template>
 
     </div>

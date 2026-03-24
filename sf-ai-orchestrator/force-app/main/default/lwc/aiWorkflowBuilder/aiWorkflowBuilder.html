@@ -22,6 +22,14 @@
                     variant="label-hidden"
                     onchange={handleWorkflowSelect}>
                 </lightning-combobox>
+                <template if:true={activeWorkflowId}>
+                    <lightning-button-icon
+                        icon-name="utility:history"
+                        alternative-text="Version history"
+                        title="Version history"
+                        onclick={handleShowHistory}>
+                    </lightning-button-icon>
+                </template>
             </lightning-button-group>
         </div>
 
@@ -43,7 +51,8 @@
                         workflow-id={activeWorkflowId}
                         onnodeselect={handleNodeSelect}
                         onnodeunselect={handleNodeUnselect}
-                        onexecutionstarted={handleExecutionStarted}>
+                        onexecutionstarted={handleExecutionStarted}
+                        onworkflowloaded={handleWorkflowLoaded}>
                     </c-ai-workflow-designer>
                 </div>
 
@@ -59,6 +68,7 @@
             <!-- Right: Properties Panel -->
             <c-ai-properties-panel
                 selected-node={selectedNode}
+                workflow={activeWorkflow}
                 providers={providers}
                 onstepupdate={handleStepUpdate}
                 onstepdelete={handleStepDelete}>
@@ -66,6 +76,17 @@
 
         </div>
     </lightning-card>
+
+    <!-- ── Version History Panel ── -->
+    <template if:true={showVersionHistory}>
+        <div class="history-overlay">
+            <c-ai-workflow-history
+                workflow-id={activeWorkflowId}
+                onclose={handleCloseHistory}
+                onrestored={handleVersionRestored}>
+            </c-ai-workflow-history>
+        </div>
+    </template>
 
     <!-- ── Template Browser Modal ── -->
     <template if:true={showTemplateModal}>

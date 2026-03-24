@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomApplication xmlns="http://soap.sforce.com/2006/04/metadata">
+    <defaultLandingTab>AI_Orchestrator_Home</defaultLandingTab>
+    <description>No-code AI workflow automation platform for Salesforce</description>
+    <formFactors>
+        <formFactor>Large</formFactor>
+    </formFactors>
+    <isNavAutoTempTabsDisabled>false</isNavAutoTempTabsDisabled>
+    <isNavPersonalizationDisabled>false</isNavPersonalizationDisabled>
+    <isNavTabPersistenceDisabled>false</isNavTabPersistenceDisabled>
+    <isOmniPinnedViewEnabled>false</isOmniPinnedViewEnabled>
+    <label>AI Orchestrator</label>
+    <navType>Standard</navType>
+    <tabs>AI_Orchestrator_Home</tabs>
+    <tabs>AI_Workflow_Builder</tabs>
+    <tabs>AI_Execution_Monitor</tabs>
+    <tabs>AI_Orchestrator_Settings</tabs>
+    <uiType>Lightning</uiType>
+    <utilityBar>
+    </utilityBar>
+</CustomApplication>

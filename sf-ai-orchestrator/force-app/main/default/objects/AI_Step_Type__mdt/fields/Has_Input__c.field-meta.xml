@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Has_Input__c</fullName>
+    <defaultValue>true</defaultValue>
+    <label>Has Input Port</label>
+    <type>Checkbox</type>
+</CustomField>

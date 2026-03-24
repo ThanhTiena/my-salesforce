@@ -1,15 +1,31 @@
 <template>
     <div class="dashboard-root">
+
         <div class="dashboard-header">
-            <h1 class="dashboard-title">AI Orchestration Dashboard</h1>
+            <div>
+                <h1 class="dashboard-title">Execution Monitor</h1>
+                <p class="dashboard-subtitle">Real-time visibility into every AI workflow run across your org.</p>
+            </div>
         </div>
-        <lightning-tabset>
-            <lightning-tab label="Executions" value="executions">
-                <c-ai-execution-monitor></c-ai-execution-monitor>
-            </lightning-tab>
-            <lightning-tab label="Providers" value="providers">
-                <c-ai-provider-setup></c-ai-provider-setup>
-            </lightning-tab>
-        </lightning-tabset>
+
+        <!-- Tab bar -->
+        <div class="dash-tabs">
+            <button class={tabMonitorClass} data-tab="monitor" onclick={handleTabClick}>
+                <lightning-icon icon-name="utility:metrics" size="x-small"></lightning-icon>
+                Executions
+            </button>
+            <button class={tabProvidersClass} data-tab="providers" onclick={handleTabClick}>
+                <lightning-icon icon-name="utility:einstein" size="x-small"></lightning-icon>
+                Providers
+            </button>
+        </div>
+
+        <template if:true={tabMonitor}>
+            <c-ai-execution-monitor></c-ai-execution-monitor>
+        </template>
+        <template if:false={tabMonitor}>
+            <c-ai-provider-setup></c-ai-provider-setup>
+        </template>
+
     </div>
 </template>

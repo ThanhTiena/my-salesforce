@@ -1,0 +1,205 @@
+<template>
+    <div class="home-root">
+
+        <!-- ── Page header ── -->
+        <div class="home-hero">
+            <div class="hero-left">
+                <h1 class="hero-title">AI Orchestrator</h1>
+                <p class="hero-subtitle">Design, run, and monitor AI workflows — all inside Salesforce.</p>
+            </div>
+            <div class="hero-actions">
+                <lightning-button
+                    label="Run a Workflow"
+                    variant="brand"
+                    icon-name="utility:play"
+                    onclick={handleOpenRunModal}>
+                </lightning-button>
+                <lightning-button-icon
+                    icon-name="utility:refresh"
+                    alternative-text="Refresh"
+                    title="Refresh"
+                    onclick={handleRefresh}>
+                </lightning-button-icon>
+            </div>
+        </div>
+
+        <!-- ── Loading ── -->
+        <template if:true={isLoading}>
+            <div class="home-loading">
+                <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:false={isLoading}>
+
+            <!-- ── KPI strip ── -->
+            <div class="kpi-strip">
+                <div class="kpi-card">
+                    <span class="kpi-value">{metrics.totalExecutions}</span>
+                    <span class="kpi-label">Runs (7d)</span>
+                </div>
+                <div class="kpi-card kpi-card--success">
+                    <span class="kpi-value">{successRateDisplay}</span>
+                    <span class="kpi-label">Success Rate</span>
+                </div>
+                <div class="kpi-card kpi-card--danger">
+                    <span class="kpi-value">{metrics.failedCount}</span>
+                    <span class="kpi-label">Failed</span>
+                </div>
+                <div class="kpi-card kpi-card--running">
+                    <span class="kpi-value">{metrics.runningCount}</span>
+                    <span class="kpi-label">Running Now</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-value">{avgDurationDisplay}</span>
+                    <span class="kpi-label">Avg Duration</span>
+                </div>
+                <div class="kpi-card kpi-card--tokens">
+                    <span class="kpi-value">{totalTokensDisplay}</span>
+                    <span class="kpi-label">Tokens Used</span>
+                </div>
+            </div>
+
+            <!-- ── Two-column body ── -->
+            <div class="home-body">
+
+                <!-- Recent executions -->
+                <div class="home-card home-card--wide">
+                    <div class="card-header">
+                        <h2 class="card-title">Recent Executions</h2>
+                        <span class="card-hint">Last 10 runs across all workflows</span>
+                    </div>
+
+                    <template if:true={hasRecentRuns}>
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered home-table">
+                            <thead>
+                                <tr>
+                                    <th>Workflow</th>
+                                    <th>Status</th>
+                                    <th>Started</th>
+                                    <th>Duration</th>
+                                    <th>Tokens</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={recentRuns} for:item="r">
+                                    <tr key={r.execId}>
+                                        <td class="run-name">{r.workflowName}</td>
+                                        <td><span class={r.statusClass}>{r.status}</span></td>
+                                        <td class="run-meta">{r.startedAtDisplay}</td>
+                                        <td class="run-meta">{r.durationDisplay}</td>
+                                        <td class="run-meta">{r.totalTokens}</td>
+                                        <td>
+                                            <lightning-button-icon
+                                                icon-name="utility:preview"
+                                                alternative-text="View progress"
+                                                size="small"
+                                                title="View step progress"
+                                                data-id={r.execId}
+                                                onclick={handleViewExecution}>
+                                            </lightning-button-icon>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+
+                    <template if:false={hasRecentRuns}>
+                        <div class="empty-state">
+                            <lightning-icon icon-name="utility:flow" size="large" class="empty-icon"></lightning-icon>
+                            <p class="empty-title">No executions yet</p>
+                            <p class="empty-hint">Click "Run a Workflow" above to get started.</p>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Active workflows quick-list -->
+                <div class="home-card">
+                    <div class="card-header">
+                        <h2 class="card-title">Active Workflows</h2>
+                        <span class="card-hint">{activeWorkflows.length} published</span>
+                    </div>
+
+                    <template if:true={hasWorkflows}>
+                        <ul class="workflow-list">
+                            <template for:each={activeWorkflows} for:item="w">
+                                <li key={w.value} class="workflow-row">
+                                    <div class="workflow-row-left">
+                                        <span class="wf-name">{w.label}</span>
+                                        <span class="wf-meta">{w.triggerObject} &bull; {w.totalRuns} runs &bull; Last: {w.lastRun}</span>
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+
+                    <template if:false={hasWorkflows}>
+                        <div class="empty-state">
+                            <p class="empty-hint">No active workflows. Go to Workflow Builder to create one.</p>
+                        </div>
+                    </template>
+                </div>
+
+            </div>
+
+            <!-- ── Inline execution progress (after Run Now) ── -->
+            <template if:true={activeExecutionId}>
+                <div class="home-card home-card--progress">
+                    <c-ai-execution-progress
+                        execution-id={activeExecutionId}
+                        onclose={handleProgressClose}>
+                    </c-ai-execution-progress>
+                </div>
+            </template>
+
+        </template>
+
+    </div>
+
+    <!-- ── Run Workflow Modal ── -->
+    <template if:true={showRunModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <h2 class="slds-modal__title">Run a Workflow</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close" onclick={handleCloseRunModal}>
+                        <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                    </button>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-combobox
+                        label="Select Workflow"
+                        value={selectedWorkflowId}
+                        options={workflows}
+                        placeholder="Choose a workflow..."
+                        required
+                        onchange={handleWorkflowPick}>
+                    </lightning-combobox>
+                    <div class="slds-m-top_medium">
+                        <lightning-input
+                            label="Trigger Record ID"
+                            value={triggerRecordId}
+                            placeholder="e.g. 0012w000003abcD (optional)"
+                            onchange={handleRecordIdChange}>
+                        </lightning-input>
+                        <p class="run-hint">Leave blank to run without a specific record context.</p>
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseRunModal} disabled={isRunning}></lightning-button>
+                    <lightning-button
+                        label="Run Now"
+                        variant="brand"
+                        icon-name="utility:play"
+                        onclick={handleRunNow}
+                        disabled={isRunDisabled}>
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+</template>

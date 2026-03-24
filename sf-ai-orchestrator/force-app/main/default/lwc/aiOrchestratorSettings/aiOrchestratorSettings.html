@@ -1,0 +1,143 @@
+<template>
+    <div class="settings-root">
+
+        <!-- Header -->
+        <div class="settings-header">
+            <div>
+                <h1 class="settings-title">Settings</h1>
+                <p class="settings-subtitle">Manage AI providers, rate limits, and MongoDB connection.</p>
+            </div>
+            <lightning-button-icon
+                icon-name="utility:refresh"
+                alternative-text="Refresh"
+                onclick={handleRefresh}>
+            </lightning-button-icon>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="settings-tabs">
+            <button class={tabProvidersClass} data-tab="providers" onclick={handleTabClick}>
+                <lightning-icon icon-name="utility:einstein" size="x-small" class="tab-icon"></lightning-icon>
+                AI Providers
+            </button>
+            <button class={tabRateLimitsClass} data-tab="rate-limits" onclick={handleTabClick}>
+                <lightning-icon icon-name="utility:metrics" size="x-small" class="tab-icon"></lightning-icon>
+                Rate Limits
+            </button>
+            <button class={tabMongoDBClass} data-tab="mongodb" onclick={handleTabClick}>
+                <lightning-icon icon-name="utility:database" size="x-small" class="tab-icon"></lightning-icon>
+                MongoDB Log
+            </button>
+        </div>
+
+        <!-- Loading -->
+        <template if:true={isLoading}>
+            <div class="settings-loading">
+                <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:false={isLoading}>
+
+            <!-- Providers tab -->
+            <template if:true={tabProviders}>
+                <div class="settings-panel">
+                    <p class="panel-desc">Active AI providers configured via Custom Metadata <code>AI_Provider__mdt</code>. To add a new provider, create a new metadata record and deploy an <code>AIAdapter{ProviderType}</code> Apex class.</p>
+                    <template if:true={hasProviders}>
+                        <div class="provider-grid">
+                            <template for:each={providers} for:item="p">
+                                <div key={p.DeveloperName} class="provider-card">
+                                    <div class="provider-header">
+                                        <span class="provider-name">{p.MasterLabel}</span>
+                                        <span class="provider-active-dot"></span>
+                                    </div>
+                                    <div class="provider-detail">
+                                        <span class="detail-label">Type</span>
+                                        <span class="detail-value">{p.Provider_Type__c}</span>
+                                    </div>
+                                    <div class="provider-detail">
+                                        <span class="detail-label">Default model</span>
+                                        <span class="detail-value">{p.Default_Model__c}</span>
+                                    </div>
+                                    <div class="provider-detail">
+                                        <span class="detail-label">Named credential</span>
+                                        <span class="detail-value">{p.Named_Credential_API_Name__c}</span>
+                                    </div>
+                                    <div class="provider-detail">
+                                        <span class="detail-label">Rate limit (RPM)</span>
+                                        <span class="detail-value">{p.Rate_Limit_RPM__c}</span>
+                                    </div>
+                                    <div class="provider-detail">
+                                        <span class="detail-label">Rate limit (TPM)</span>
+                                        <span class="detail-value">{p.Rate_Limit_TPM__c}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasProviders}>
+                        <div class="empty-state">
+                            <p>No active providers found. Add records to <code>AI_Provider__mdt</code> and set Is Active = true.</p>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Rate limits tab -->
+            <template if:true={tabRateLimits}>
+                <div class="settings-panel">
+                    <p class="panel-desc">Token usage by provider over the last 30 days. Limits are defined in <code>AI_Provider__mdt.Rate_Limit_RPM__c</code> and <code>Rate_Limit_TPM__c</code>.</p>
+                    <template if:true={hasTokenUsage}>
+                        <div class="rate-list">
+                            <template for:each={tokenUsage} for:item="t">
+                                <div key={t.providerName} class="rate-row">
+                                    <div class="rate-name">{t.providerName}</div>
+                                    <div class="rate-stats">
+                                        <span class="rate-tokens">{t.totalTokens} tokens</span>
+                                        <span class="rate-execs">{t.executionCount} steps</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasTokenUsage}>
+                        <div class="empty-state">
+                            <p>No token usage data for the last 30 days.</p>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- MongoDB tab -->
+            <template if:true={tabMongoDB}>
+                <div class="settings-panel">
+                    <p class="panel-desc">Execution logs are dual-written to MongoDB via the Vercel proxy. Configure the connection in <code>AI_MongoDB_Config__mdt.Default</code>.</p>
+                    <div class="mongo-info">
+                        <div class="mongo-row">
+                            <span class="detail-label">Total executions logged (30d)</span>
+                            <span class="detail-value mongo-value">{metrics.totalExecutions}</span>
+                        </div>
+                        <div class="mongo-row">
+                            <span class="detail-label">Success</span>
+                            <span class="detail-value mongo-value">{metrics.successCount}</span>
+                        </div>
+                        <div class="mongo-row">
+                            <span class="detail-label">Failed</span>
+                            <span class="detail-value mongo-value">{metrics.failedCount}</span>
+                        </div>
+                        <div class="mongo-row">
+                            <span class="detail-label">Total tokens logged</span>
+                            <span class="detail-value mongo-value">{metrics.totalTokensUsed}</span>
+                        </div>
+                    </div>
+                    <div class="mongo-note">
+                        <lightning-icon icon-name="utility:info" size="x-small"></lightning-icon>
+                        <span>To change write mode (ASYNC_BEST_EFFORT vs SYNC_REQUIRED) or toggle MongoDB off, update the <code>Write_Mode__c</code> and <code>Is_Active__c</code> fields on the Default CMDT record.</span>
+                    </div>
+                </div>
+            </template>
+
+        </template>
+
+    </div>
+</template>

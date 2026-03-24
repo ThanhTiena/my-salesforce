@@ -19,6 +19,7 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    position: relative;
 }
 
 /* ── Canvas drop zone ── */
@@ -36,4 +37,14 @@
 /* ── Modal backdrop fix for LWC ── */
 .slds-modal__container {
     max-width: 28rem;
+}
+
+/* ── Version history overlay (slides in from right over canvas) ── */
+.history-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 360px;
+    z-index: 100;
+    box-shadow: -4px 0 16px rgba(0,0,0,0.15);
 }

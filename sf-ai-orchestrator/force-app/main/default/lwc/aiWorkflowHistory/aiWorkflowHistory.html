@@ -1,0 +1,46 @@
+<template>
+    <div class="hist-root">
+        <div class="hist-header">
+            <span class="hist-title">Version History</span>
+            <div class="hist-header-actions">
+                <lightning-button-icon icon-name="utility:refresh" alternative-text="Refresh" size="small" onclick={handleRefresh}></lightning-button-icon>
+                <lightning-button-icon icon-name="utility:close"   alternative-text="Close"   size="small" onclick={handleClose}></lightning-button-icon>
+            </div>
+        </div>
+
+        <template if:true={isLoading}>
+            <div class="hist-loading">
+                <lightning-spinner size="small" alternative-text="Loading..."></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:false={isLoading}>
+            <template if:true={hasVersions}>
+                <ul class="hist-list">
+                    <template for:each={versions} for:item="v">
+                        <li key={v.id} class="hist-row">
+                            <div class="hist-badge">v{v.versionNum}</div>
+                            <div class="hist-info">
+                                <span class="hist-meta">{v.savedBy} &bull; {v.savedAt}</span>
+                                <template if:true={v.summary}>
+                                    <span class="hist-summary">{v.summary}</span>
+                                </template>
+                            </div>
+                            <lightning-button
+                                label="Restore"
+                                variant="neutral"
+                                size="small"
+                                data-id={v.id}
+                                onclick={handleRestore}
+                                disabled={restoringId}>
+                            </lightning-button>
+                        </li>
+                    </template>
+                </ul>
+            </template>
+            <template if:false={hasVersions}>
+                <div class="hist-empty">No saved versions yet. Save the canvas to create a snapshot.</div>
+            </template>
+        </template>
+    </div>
+</template>

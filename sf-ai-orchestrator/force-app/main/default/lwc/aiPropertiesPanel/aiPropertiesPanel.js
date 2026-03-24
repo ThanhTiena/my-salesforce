@@ -1,5 +1,14 @@
-import { LightningElement, api, track, wire } from 'lwc';
+import { LightningElement, api, track } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getActiveProviders from '@salesforce/apex/WorkflowService.getActiveProviders';
+import saveWorkflow from '@salesforce/apex/WorkflowService.saveWorkflow';
+
+const TRIGGER_TYPES = [
+    { value: 'MANUAL',          label: 'Manual',          icon: 'utility:touch_action',  hint: 'Run on demand only' },
+    { value: 'RECORD_TRIGGER',  label: 'Record Trigger',  icon: 'utility:record',        hint: 'When a record is created or updated' },
+    { value: 'SCHEDULED',       label: 'Scheduled',       icon: 'utility:clock',         hint: 'On a recurring schedule' },
+    { value: 'PLATFORM_EVENT',  label: 'Platform Event',  icon: 'utility:connected_apps',hint: 'On a Platform Event message' },
+];
 
 const NODE_LABELS = {
     START        : 'Start',
@@ -70,12 +79,23 @@ export default class AiPropertiesPanel extends LightningElement {
         this._syncStepData(val?.stepData);
     }
 
+    // Workflow record passed from parent for the Settings tab
+    @api
+    get workflow() { return this._workflow; }
+    set workflow(val) {
+        this._workflow = val;
+        this._syncWorkflowData(val);
+    }
+
     // Active providers loaded for the AI Inference combobox
     @api providers = [];
 
-    @track stepData = {};
+    @track stepData      = {};
+    @track workflowData  = {};
     @track _selectedNode = null;
+    @track _workflow     = null;
     @track _selectedProviderDefaultModel = '';
+    @track isSavingWorkflow = false;
 
     // Wire not used here because providers is passed via @api from the parent
     // (parent caches the wire result to avoid re-querying per node selection)
@@ -83,9 +103,23 @@ export default class AiPropertiesPanel extends LightningElement {
     // ─── Getters: type guards ─────────────────────────────────────────────────
 
     get hasSelection()    { return !!this._selectedNode; }
+    get hasWorkflow()     { return !!this._workflow; }
+    get showSettings()    { return !this.hasSelection && this.hasWorkflow; }
     get nodeType()        { return this._selectedNode?.stepType; }
     get nodeLabel()       { return NODE_LABELS[this.nodeType] ?? this.nodeType; }
     get nodeIcon()        { return NODE_ICONS[this.nodeType]  ?? '●'; }
+
+    get triggerTypes() {
+        return TRIGGER_TYPES.map(t => ({
+            ...t,
+            isSelected    : this.workflowData.triggerType === t.value,
+            cardClass     : 'trigger-card' + (this.workflowData.triggerType === t.value ? ' trigger-card--active' : ''),
+        }));
+    }
+
+    get showRecordTriggerFields() { return this.workflowData.triggerType === 'RECORD_TRIGGER'; }
+    get showScheduledFields()     { return this.workflowData.triggerType === 'SCHEDULED'; }
+    get showPlatformEventFields() { return this.workflowData.triggerType === 'PLATFORM_EVENT'; }
 
     // Placeholders containing { or { must come from JS — LWC parses them as template expressions
     get promptPlaceholder()        { return 'e.g. Summarise the case: AccountName, Subject'; }
@@ -141,6 +175,43 @@ export default class AiPropertiesPanel extends LightningElement {
         this.stepData  = { ...this.stepData, providerDeveloperName: value };
     }
 
+    // ─── Workflow settings handlers ───────────────────────────────────────────
+
+    handleTriggerTypeSelect(event) {
+        const val = event.currentTarget.dataset.value;
+        this.workflowData = { ...this.workflowData, triggerType: val };
+    }
+
+    handleWorkflowFieldChange(event) {
+        const field = event.currentTarget.dataset.field;
+        this.workflowData = { ...this.workflowData, [field]: event.detail.value };
+    }
+
+    async handleSaveWorkflowSettings() {
+        if (!this._workflow?.Id) return;
+        this.isSavingWorkflow = true;
+        try {
+            await saveWorkflow({
+                workflow: {
+                    Id                    : this._workflow.Id,
+                    Name                  : this.workflowData.name,
+                    Description__c        : this.workflowData.description,
+                    Trigger_Object__c     : this.workflowData.triggerObject,
+                    Trigger_Type__c       : this.workflowData.triggerType,
+                    Trigger_Condition__c  : this.workflowData.triggerCondition,
+                    Max_Retries__c        : this.workflowData.maxRetries,
+                    Notification_Email__c : this.workflowData.notificationEmail,
+                },
+            });
+            this.dispatchEvent(new CustomEvent('workflowsettingssaved', { bubbles: true }));
+            this.dispatchEvent(new ShowToastEvent({ title: 'Saved', message: 'Workflow settings updated.', variant: 'success' }));
+        } catch (e) {
+            this.dispatchEvent(new ShowToastEvent({ title: 'Save Failed', message: e.body?.message ?? e.message, variant: 'error' }));
+        } finally {
+            this.isSavingWorkflow = false;
+        }
+    }
+
     // ─── Apply / Delete ───────────────────────────────────────────────────────
 
     handleApply() {
@@ -162,6 +233,18 @@ export default class AiPropertiesPanel extends LightningElement {
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
+
+    _syncWorkflowData(wf) {
+        this.workflowData = {
+            name              : wf?.Name                  ?? '',
+            description       : wf?.Description__c        ?? '',
+            triggerObject     : wf?.Trigger_Object__c     ?? '',
+            triggerType       : wf?.Trigger_Type__c       ?? 'MANUAL',
+            triggerCondition  : wf?.Trigger_Condition__c  ?? '',
+            maxRetries        : wf?.Max_Retries__c        ?? 3,
+            notificationEmail : wf?.Notification_Email__c ?? '',
+        };
+    }
 
     _syncStepData(incoming) {
         this.stepData = {

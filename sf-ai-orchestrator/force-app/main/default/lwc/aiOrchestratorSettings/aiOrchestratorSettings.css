@@ -1,0 +1,166 @@
+.settings-root {
+    padding: 1.5rem;
+    background: #f3f2f2;
+    min-height: 100vh;
+    font-family: 'Salesforce Sans', Arial, sans-serif;
+}
+
+.settings-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+.settings-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #032d60;
+    margin: 0 0 0.2rem;
+}
+.settings-subtitle {
+    font-size: 0.85rem;
+    color: #706e6b;
+    margin: 0;
+}
+
+/* ── Tab bar ── */
+.settings-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #dddbda;
+    margin-bottom: 1.25rem;
+}
+.settings-tab {
+    background: none;
+    border: none;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #706e6b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.settings-tab:hover { color: #032d60; }
+.settings-tab--active {
+    color: #032d60;
+    border-bottom-color: #1b96ff;
+}
+.tab-icon { opacity: 0.7; }
+
+/* ── Loading ── */
+.settings-loading {
+    display: flex;
+    justify-content: center;
+    padding: 3rem;
+}
+
+/* ── Panel ── */
+.settings-panel {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.panel-desc {
+    font-size: 0.85rem;
+    color: #706e6b;
+    margin: 0 0 1.25rem;
+    line-height: 1.5;
+}
+
+/* ── Provider grid ── */
+.provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.75rem;
+}
+.provider-card {
+    border: 1px solid #dddbda;
+    border-radius: 8px;
+    padding: 1rem;
+    background: #fafafa;
+}
+.provider-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+.provider-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #032d60;
+}
+.provider-active-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4bca81;
+}
+.provider-detail {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.8rem;
+}
+.provider-detail:last-child { border-bottom: none; }
+.detail-label { color: #706e6b; }
+.detail-value { font-weight: 600; color: #032d60; text-align: right; max-width: 60%; word-break: break-all; }
+
+/* ── Rate limit list ── */
+.rate-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.rate-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+.rate-name { font-weight: 600; font-size: 0.875rem; color: #032d60; }
+.rate-stats { display: flex; gap: 1rem; }
+.rate-tokens { font-size: 0.875rem; font-weight: 700; color: #9050e9; }
+.rate-execs  { font-size: 0.8rem; color: #706e6b; }
+
+/* ── MongoDB info ── */
+.mongo-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.mongo-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.75rem 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+.mongo-value { font-size: 1.5rem; font-weight: 700; color: #032d60; }
+.mongo-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    background: #eff6ff;
+    border-left: 3px solid #1b96ff;
+    padding: 0.75rem 1rem;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.8rem;
+    color: #032d60;
+    line-height: 1.5;
+}
+
+/* ── Empty state ── */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #706e6b;
+    font-size: 0.875rem;
+}

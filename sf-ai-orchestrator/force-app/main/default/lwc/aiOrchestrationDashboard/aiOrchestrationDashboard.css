@@ -1,13 +1,54 @@
 .dashboard-root {
-    padding: 1rem;
+    padding: 1.5rem;
+    background: #f3f2f2;
+    min-height: 100vh;
+    font-family: 'Salesforce Sans', Arial, sans-serif;
 }
 
 .dashboard-header {
-    margin-bottom: 1rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
 }
 
 .dashboard-title {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #16325c;
+    color: #032d60;
+    margin: 0 0 0.2rem;
+}
+
+.dashboard-subtitle {
+    font-size: 0.85rem;
+    color: #706e6b;
+    margin: 0;
+}
+
+/* ── Tab bar ── */
+.dash-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #dddbda;
+    margin-bottom: 1.25rem;
+}
+.dash-tab {
+    background: none;
+    border: none;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #706e6b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.dash-tab:hover { color: #032d60; }
+.dash-tab--active {
+    color: #032d60;
+    border-bottom-color: #1b96ff;
 }

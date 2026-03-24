@@ -2,7 +2,6 @@ import { LightningElement, track } from 'lwc';
 import getDashboardMetrics   from '@salesforce/apex/AIExecutionMonitorController.getDashboardMetrics';
 import getRecentExecutions   from '@salesforce/apex/AIExecutionMonitorController.getRecentExecutions';
 import getTokenUsageByProvider from '@salesforce/apex/AIExecutionMonitorController.getTokenUsageByProvider';
-import getStepExecutions     from '@salesforce/apex/AIExecutionMonitorController.getStepExecutions';
 
 const STATUS_CLASSES = {
     COMPLETED : 'badge-success',
@@ -20,12 +19,13 @@ const PERIOD_OPTIONS = [
 
 export default class AiExecutionMonitor extends LightningElement {
 
-    @track metrics      = {};
-    @track executions   = [];
-    @track tokenUsage   = [];
-    @track stepExecutions = [];
-    @track isLoading    = false;
-    @track showStepModal = false;
+    @track metrics           = {};
+    @track executions        = [];
+    @track tokenUsage        = [];
+    @track stepExecutions    = [];
+    @track isLoading         = false;
+    @track showStepModal     = false;
+    @track activeExecutionId = null;   // drives inline progress panel
 
     daysBack = '7';
 
@@ -65,9 +65,10 @@ export default class AiExecutionMonitor extends LightningElement {
 
     // ─── Getters ─────────────────────────────────────────────────────────────
 
-    get hasExecutions()  { return this.executions.length > 0; }
-    get hasTokenData()   { return this.tokenUsage.length > 0; }
-    get hasStepData()    { return this.stepExecutions.length > 0; }
+    get hasExecutions()   { return this.executions.length > 0; }
+    get hasTokenData()    { return this.tokenUsage.length > 0; }
+    get hasStepData()     { return this.stepExecutions.length > 0; }
+    get showProgressPane(){ return !!this.activeExecutionId; }
 
     get successRateDisplay() {
         if (!this.metrics.successRate && this.metrics.successRate !== 0) return '—';
@@ -91,18 +92,18 @@ export default class AiExecutionMonitor extends LightningElement {
         this._loadAll();
     }
 
-    async handleViewSteps(event) {
+    handleViewSteps(event) {
         const execId = event.currentTarget.dataset.id;
-        this.showStepModal = true;
-        try {
-            this.stepExecutions = await getStepExecutions({ executionId: String(execId) });
-        } catch (e) {
-            console.error('Failed to load steps:', e);
-        }
+        // Toggle: clicking the same row again closes the panel
+        this.activeExecutionId = this.activeExecutionId === execId ? null : execId;
+    }
+
+    handleCloseProgress() {
+        this.activeExecutionId = null;
     }
 
     handleCloseModal() {
-        this.showStepModal   = false;
-        this.stepExecutions  = [];
+        this.showStepModal  = false;
+        this.stepExecutions = [];
     }
 }

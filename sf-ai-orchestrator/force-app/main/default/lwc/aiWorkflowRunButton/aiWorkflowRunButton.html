@@ -1,0 +1,63 @@
+<template>
+    <lightning-card title={cardTitle} icon-name="utility:flow">
+        <div slot="actions">
+            <lightning-button-icon
+                icon-name="utility:refresh"
+                alternative-text="Refresh"
+                size="small"
+                onclick={handleRefresh}>
+            </lightning-button-icon>
+        </div>
+
+        <div class="slds-p-horizontal_medium">
+
+            <!-- Loading -->
+            <template if:true={isLoading}>
+                <div class="rwb-loading">
+                    <lightning-spinner size="small" alternative-text="Loading workflows..."></lightning-spinner>
+                </div>
+            </template>
+
+            <!-- Workflow list -->
+            <template if:false={isLoading}>
+                <template if:true={hasWorkflows}>
+                    <ul class="rwb-list">
+                        <template for:each={workflows} for:item="w">
+                            <li key={w.id} class="rwb-row">
+                                <div class="rwb-info">
+                                    <span class="rwb-name">{w.name}</span>
+                                    <span class="rwb-meta">{w.triggerObject} &bull; {w.totalRuns} runs &bull; Last: {w.lastRun}</span>
+                                </div>
+                                <lightning-button
+                                    label="Run Now"
+                                    variant="brand-outline"
+                                    icon-name="utility:play"
+                                    size="small"
+                                    data-id={w.id}
+                                    onclick={handleRun}>
+                                </lightning-button>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+
+                <template if:false={hasWorkflows}>
+                    <div class="rwb-empty">
+                        <p>No active AI workflows found for this page.</p>
+                    </div>
+                </template>
+            </template>
+
+            <!-- Inline execution progress -->
+            <template if:true={showProgress}>
+                <div class="rwb-progress">
+                    <c-ai-execution-progress
+                        execution-id={activeExecutionId}
+                        onclose={handleProgressClose}>
+                    </c-ai-execution-progress>
+                </div>
+            </template>
+
+        </div>
+    </lightning-card>
+</template>

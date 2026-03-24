@@ -1,10 +1,133 @@
 <template>
     <div class="props-root">
-        <!-- No selection state -->
+        <!-- No selection: show workflow settings if a workflow is loaded -->
         <template if:false={hasSelection}>
-            <div class="props-empty">
-                <p>Select a node on the canvas to configure it.</p>
-            </div>
+            <template if:true={showSettings}>
+                <div class="props-header">
+                    <lightning-icon icon-name="utility:settings" size="small" class="props-node-icon"></lightning-icon>
+                    <span class="props-node-title">Workflow Settings</span>
+                </div>
+                <div class="props-body">
+                    <div class="props-section">
+                        <lightning-input
+                            label="Name"
+                            value={workflowData.name}
+                            data-field="name"
+                            onchange={handleWorkflowFieldChange}
+                            maxlength="80"
+                            required>
+                        </lightning-input>
+                        <lightning-textarea
+                            label="Description"
+                            value={workflowData.description}
+                            data-field="description"
+                            onchange={handleWorkflowFieldChange}
+                            rows="2">
+                        </lightning-textarea>
+                    </div>
+
+                    <!-- Trigger type visual selector -->
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">How does this workflow start?</p>
+                        <div class="trigger-grid">
+                            <template for:each={triggerTypes} for:item="t">
+                                <div key={t.value} class={t.cardClass} data-value={t.value} onclick={handleTriggerTypeSelect}>
+                                    <lightning-icon icon-name={t.icon} size="small" class="trigger-icon"></lightning-icon>
+                                    <span class="trigger-label">{t.label}</span>
+                                    <span class="trigger-hint">{t.hint}</span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Conditional: Record Trigger fields -->
+                    <template if:true={showRecordTriggerFields}>
+                        <div class="props-section props-section--bordered">
+                            <p class="props-section-title">Record Trigger Config</p>
+                            <lightning-input
+                                label="Object API Name"
+                                value={workflowData.triggerObject}
+                                data-field="triggerObject"
+                                onchange={handleWorkflowFieldChange}
+                                placeholder="e.g. Lead, Case, Opportunity">
+                            </lightning-input>
+                            <lightning-textarea
+                                label="Trigger Condition (SOQL WHERE)"
+                                value={workflowData.triggerCondition}
+                                data-field="triggerCondition"
+                                onchange={handleWorkflowFieldChange}
+                                rows="2"
+                                placeholder="e.g. Status = 'New' AND Rating = 'Hot'">
+                            </lightning-textarea>
+                        </div>
+                    </template>
+
+                    <!-- Conditional: Scheduled fields -->
+                    <template if:true={showScheduledFields}>
+                        <div class="props-section props-section--bordered">
+                            <p class="props-section-title">Schedule Config</p>
+                            <lightning-input
+                                label="Cron Expression"
+                                value={workflowData.triggerCondition}
+                                data-field="triggerCondition"
+                                onchange={handleWorkflowFieldChange}
+                                placeholder="e.g. 0 0 * * * (daily midnight)">
+                            </lightning-input>
+                        </div>
+                    </template>
+
+                    <!-- Conditional: Platform Event fields -->
+                    <template if:true={showPlatformEventFields}>
+                        <div class="props-section props-section--bordered">
+                            <p class="props-section-title">Platform Event Config</p>
+                            <lightning-input
+                                label="Event API Name"
+                                value={workflowData.triggerObject}
+                                data-field="triggerObject"
+                                onchange={handleWorkflowFieldChange}
+                                placeholder="e.g. MyEvent__e">
+                            </lightning-input>
+                        </div>
+                    </template>
+
+                    <!-- Retry & notifications -->
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Retry &amp; Alerts</p>
+                        <lightning-input
+                            type="number"
+                            label="Max Retries"
+                            value={workflowData.maxRetries}
+                            data-field="maxRetries"
+                            onchange={handleWorkflowFieldChange}
+                            min="0"
+                            max="10">
+                        </lightning-input>
+                        <lightning-input
+                            label="Notification Email"
+                            value={workflowData.notificationEmail}
+                            data-field="notificationEmail"
+                            onchange={handleWorkflowFieldChange}
+                            placeholder="e.g. ops@company.com">
+                        </lightning-input>
+                    </div>
+
+                    <div class="props-footer">
+                        <lightning-button
+                            label="Save Settings"
+                            variant="brand"
+                            onclick={handleSaveWorkflowSettings}
+                            disabled={isSavingWorkflow}>
+                        </lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <template if:false={showSettings}>
+                <div class="props-empty">
+                    <lightning-icon icon-name="utility:connected_apps" size="large" class="props-empty-icon"></lightning-icon>
+                    <p>Select a node to configure it, or open a workflow to see its settings here.</p>
+                </div>
+            </template>
         </template>
 
         <!-- Selection: header always shown -->

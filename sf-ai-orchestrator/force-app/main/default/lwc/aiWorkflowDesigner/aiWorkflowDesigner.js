@@ -143,6 +143,8 @@ export default class AiWorkflowDesigner extends LightningElement {
             this.workflow = data.workflow;
             const steps   = data.steps || [];
             this._importFromJson(this.workflow?.Canvas_JSON__c, steps);
+            // Notify parent with workflow record so properties panel can show settings
+            this.dispatchEvent(new CustomEvent('workflowloaded', { detail: { workflow: this.workflow } }));
         } catch (e) {
             this._showToast('Load Error', e.body?.message ?? e.message, 'error');
         } finally {
