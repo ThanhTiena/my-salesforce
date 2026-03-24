@@ -1,4 +1,4 @@
-import { LightningElement, track, wire } from 'lwc';
+import { LightningElement, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getProviderDetails from '@salesforce/apex/WorkflowService.getProviderDetails';
 import getDashboardMetrics from '@salesforce/apex/AIExecutionMonitorController.getDashboardMetrics';
@@ -44,9 +44,6 @@ export default class AiOrchestratorSettings extends LightningElement {
     get hasProviders()   { return this.providers.length > 0; }
     get hasTokenUsage()  { return this.tokenUsage.length > 0; }
 
-    get tabClass() {
-        return (tab) => 'settings-tab' + (this.activeTab === tab ? ' settings-tab--active' : '');
-    }
     get tabProvidersClass()   { return 'settings-tab' + (this.activeTab === 'providers'    ? ' settings-tab--active' : ''); }
     get tabRateLimitsClass()  { return 'settings-tab' + (this.activeTab === 'rate-limits'  ? ' settings-tab--active' : ''); }
     get tabMongoDBClass()     { return 'settings-tab' + (this.activeTab === 'mongodb'      ? ' settings-tab--active' : ''); }

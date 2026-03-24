@@ -2,5 +2,5 @@
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
     <flexiPage>AI_Orchestrator_Settings_Page</flexiPage>
     <label>Settings</label>
-    <motif>custom91: Settings</motif>
+    <motif>Custom91: Settings</motif>
 </CustomTab>

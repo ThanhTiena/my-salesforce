@@ -2,5 +2,5 @@
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
     <flexiPage>AI_Orchestrator_Home_Page</flexiPage>
     <label>Home</label>
-    <motif>custom85: Robot</motif>
+    <motif>Custom85: Gears</motif>
 </CustomTab>

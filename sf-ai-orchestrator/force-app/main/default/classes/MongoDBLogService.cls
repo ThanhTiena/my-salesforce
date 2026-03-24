@@ -180,9 +180,45 @@ public with sharing class MongoDBLogService {
         @AuraEnabled public String  providerUsed;
         @AuraEnabled public String  modelUsed;
         @AuraEnabled public Integer tokensUsed;
+        @AuraEnabled public Integer promptTokens;
+        @AuraEnabled public Integer completionTokens;
         @AuraEnabled public Integer durationMs;
+        @AuraEnabled public Integer httpStatusCode;
+        @AuraEnabled public Integer retryAttempt;
         @AuraEnabled public String  errorMessage;
         @AuraEnabled public String  parsedOutput;
+        @AuraEnabled public String  promptSent;
+        @AuraEnabled public String  rawResponse;
+    }
+
+    /**
+     * Full execution log row (with steps) returned by queryExecutionLogs().
+     */
+    public class ExecutionLogRow {
+        @AuraEnabled public String  sfExecutionId;
+        @AuraEnabled public String  workflowName;
+        @AuraEnabled public Integer workflowVersion;
+        @AuraEnabled public String  status;
+        @AuraEnabled public String  initiatedBy;
+        @AuraEnabled public String  triggerRecordId;
+        @AuraEnabled public String  triggerObject;
+        @AuraEnabled public String  errorMessage;
+        @AuraEnabled public Integer retryCount;
+        @AuraEnabled public Integer totalTokensUsed;
+        @AuraEnabled public Decimal durationSeconds;
+        @AuraEnabled public Long    startedAtEpochMs;
+        @AuraEnabled public Long    completedAtEpochMs;
+        @AuraEnabled public List<StepSummary> steps;
+    }
+
+    /**
+     * Paged result wrapper returned by queryExecutionLogs().
+     */
+    public class LogPage {
+        @AuraEnabled public List<ExecutionLogRow> rows;
+        @AuraEnabled public Integer               totalCount;
+        @AuraEnabled public Integer               pageSize;
+        @AuraEnabled public Integer               pageNumber;
     }
 
     // ─── Write API ────────────────────────────────────────────────────────────
@@ -452,6 +488,151 @@ public with sharing class MongoDBLogService {
     }
 
     /**
+     * Paginated, filtered query of execution logs from MongoDB.
+     * Supports text search (workflow name), status filter, date range, and sort.
+     *
+     * POST /api/executions/aggregate  — for count
+     * POST /api/executions/query      — for rows
+     *
+     * @param searchText  Partial match on workflow_name (null = all)
+     * @param statusFilter  COMPLETED|FAILED|RUNNING|RETRYING|null (null = all)
+     * @param daysBack    How many days back to look (null = all time)
+     * @param sortField   MongoDB field name to sort by (default started_at)
+     * @param sortAsc     true = ASC, false = DESC
+     * @param pageNumber  1-based page number
+     * @param pageSize    Rows per page (max 100)
+     */
+    @AuraEnabled(cacheable=false)
+    public static LogPage queryExecutionLogs(
+        String  searchText,
+        String  statusFilter,
+        Integer daysBack,
+        String  sortField,
+        Boolean sortAsc,
+        Integer pageNumber,
+        Integer pageSize
+    ) {
+        LogPage page = new LogPage();
+        page.rows       = new List<ExecutionLogRow>();
+        page.totalCount = 0;
+        page.pageSize   = (pageSize  != null && pageSize  > 0) ? Math.min(pageSize,  100) : 25;
+        page.pageNumber = (pageNumber != null && pageNumber > 0) ? pageNumber : 1;
+
+        if (!isActive()) return page;
+
+        try {
+            // ── Build filter ──────────────────────────────────────────────────
+            Map<String, Object> filter = new Map<String, Object>();
+
+            if (daysBack != null && daysBack > 0) {
+                Long sinceMs = Datetime.now().addDays(-daysBack).getTime();
+                filter.put('started_at', new Map<String, Object>{
+                    '$gte' => new Map<String, Object>{
+                        '$date' => new Map<String, Object>{ '$numberLong' => String.valueOf(sinceMs) }
+                    }
+                });
+            }
+
+            if (String.isNotBlank(statusFilter) && statusFilter != 'ALL') {
+                filter.put('status', statusFilter);
+            }
+
+            if (String.isNotBlank(searchText)) {
+                filter.put('workflow_name', new Map<String, Object>{
+                    '$regex' => searchText,
+                    '$options' => 'i'
+                });
+            }
+
+            // ── Count query ───────────────────────────────────────────────────
+            Map<String, Object> countBody = new Map<String, Object>{
+                'pipeline' => new List<Object>{
+                    new Map<String, Object>{ '$match' => filter },
+                    new Map<String, Object>{ '$count' => 'total' }
+                }
+            };
+            HttpResponse countResp = post(PATH_EXECUTIONS_AGGREGATE, countBody);
+            if (countResp.getStatusCode() == 200) {
+                Map<String, Object> parsed = (Map<String, Object>) JSON.deserializeUntyped(countResp.getBody());
+                List<Object> docs = (List<Object>) parsed.get('documents');
+                if (docs != null && !docs.isEmpty()) {
+                    page.totalCount = toInt(((Map<String, Object>) docs[0]).get('total'));
+                }
+            }
+
+            // ── Rows query ────────────────────────────────────────────────────
+            String  sf   = String.isNotBlank(sortField) ? sortField : 'started_at';
+            Integer dir  = (sortAsc != null && sortAsc) ? 1 : -1;
+            Integer skip = (page.pageNumber - 1) * page.pageSize;
+
+            Map<String, Object> rowBody = new Map<String, Object>{
+                'filter' => filter,
+                'sort'   => new Map<String, Object>{ sf => dir },
+                'limit'  => page.pageSize,
+                'skip'   => skip
+            };
+            HttpResponse rowResp = post(PATH_EXECUTIONS_QUERY, rowBody);
+            if (rowResp.getStatusCode() != 200) {
+                throw new MongoDBException('queryExecutionLogs HTTP ' + rowResp.getStatusCode() + ': ' + rowResp.getBody());
+            }
+            Map<String, Object> parsedRows = (Map<String, Object>) JSON.deserializeUntyped(rowResp.getBody());
+            List<Object> rowDocs = (List<Object>) parsedRows.get('documents');
+            if (rowDocs != null) {
+                for (Object d : rowDocs) {
+                    Map<String, Object> row = (Map<String, Object>) d;
+                    ExecutionLogRow r = new ExecutionLogRow();
+                    r.sfExecutionId    = (String)  row.get('sf_execution_id');
+                    r.workflowName     = (String)  row.get('workflow_name');
+                    r.workflowVersion  = toInt(row.get('workflow_version'));
+                    r.status           = (String)  row.get('status');
+                    r.initiatedBy      = (String)  row.get('initiated_by');
+                    r.triggerRecordId  = (String)  row.get('trigger_record_id');
+                    r.triggerObject    = (String)  row.get('trigger_object');
+                    r.errorMessage     = (String)  row.get('error_message');
+                    r.retryCount       = toInt(row.get('retry_count'));
+                    r.totalTokensUsed  = toInt(row.get('total_tokens_used'));
+                    r.durationSeconds  = toDecimal(row.get('duration_seconds'));
+                    r.startedAtEpochMs   = toEpochMs(row.get('started_at'));
+                    r.completedAtEpochMs = toEpochMs(row.get('completed_at'));
+
+                    // Map embedded steps
+                    List<StepSummary> stepList = new List<StepSummary>();
+                    List<Object> steps = (List<Object>) row.get('steps');
+                    if (steps != null) {
+                        for (Object s : steps) {
+                            Map<String, Object> sr = (Map<String, Object>) s;
+                            StepSummary ss = new StepSummary();
+                            ss.sfStepExecutionId = (String) sr.get('sf_step_execution_id');
+                            ss.stepName          = (String) sr.get('step_name');
+                            ss.stepType          = (String) sr.get('step_type');
+                            ss.stepOrder         = toInt(sr.get('step_order'));
+                            ss.status            = (String) sr.get('status');
+                            ss.providerUsed      = (String) sr.get('provider_used');
+                            ss.modelUsed         = (String) sr.get('model_used');
+                            ss.tokensUsed        = toInt(sr.get('tokens_used'));
+                            ss.promptTokens      = toInt(sr.get('prompt_tokens'));
+                            ss.completionTokens  = toInt(sr.get('completion_tokens'));
+                            ss.durationMs        = toInt(sr.get('duration_ms'));
+                            ss.httpStatusCode    = toInt(sr.get('http_status_code'));
+                            ss.retryAttempt      = toInt(sr.get('retry_attempt'));
+                            ss.errorMessage      = (String) sr.get('error_message');
+                            ss.parsedOutput      = (String) sr.get('parsed_output');
+                            ss.promptSent        = (String) sr.get('prompt_sent');
+                            ss.rawResponse       = (String) sr.get('raw_response');
+                            stepList.add(ss);
+                        }
+                    }
+                    r.steps = stepList;
+                    page.rows.add(r);
+                }
+            }
+        } catch (Exception e) {
+            handleError('queryExecutionLogs', e);
+        }
+        return page;
+    }
+
+    /**
      * Returns step-level details for a single execution.
      * POST /api/executions/query  — projects the steps array only
      */
@@ -486,9 +667,15 @@ public with sharing class MongoDBLogService {
                         ss.providerUsed      = (String) row.get('provider_used');
                         ss.modelUsed         = (String) row.get('model_used');
                         ss.tokensUsed        = toInt(row.get('tokens_used'));
+                        ss.promptTokens      = toInt(row.get('prompt_tokens'));
+                        ss.completionTokens  = toInt(row.get('completion_tokens'));
                         ss.durationMs        = toInt(row.get('duration_ms'));
+                        ss.httpStatusCode    = toInt(row.get('http_status_code'));
+                        ss.retryAttempt      = toInt(row.get('retry_attempt'));
                         ss.errorMessage      = (String) row.get('error_message');
                         ss.parsedOutput      = (String) row.get('parsed_output');
+                        ss.promptSent        = (String) row.get('prompt_sent');
+                        ss.rawResponse       = (String) row.get('raw_response');
                         out.add(ss);
                     }
                 }

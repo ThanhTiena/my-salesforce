@@ -8,6 +8,15 @@
             </div>
         </div>
 
+        <!-- Inline confirmation bar -->
+        <template if:true={showConfirm}>
+            <div class="hist-confirm">
+                <span class="hist-confirm-msg">Overwrite current canvas with this version?</span>
+                <lightning-button label="Yes, Restore" variant="destructive" size="small" onclick={handleConfirmRestore}></lightning-button>
+                <lightning-button label="Cancel"        variant="neutral"     size="small" onclick={handleCancelRestore}></lightning-button>
+            </div>
+        </template>
+
         <template if:true={isLoading}>
             <div class="hist-loading">
                 <lightning-spinner size="small" alternative-text="Loading..."></lightning-spinner>
@@ -32,7 +41,7 @@
                                 size="small"
                                 data-id={v.id}
                                 onclick={handleRestore}
-                                disabled={restoringId}>
+                                disabled={isRestoring}>
                             </lightning-button>
                         </li>
                     </template>

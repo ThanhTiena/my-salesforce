@@ -1,6 +1,6 @@
 # API Specifications
 
-This document describes the REST API endpoints hosted on Vercel (Next.js) that Salesforce can call out to for writing audit logs and reading/writing records stored in MongoDB.
+This document describes the REST API endpoints hosted on Vercel (Next.js) that Salesforce can call out to for writing audit logs, reading/writing records, and syncing AI workflow execution telemetry stored in MongoDB.
 
 ---
 
@@ -32,6 +32,28 @@ openssl rand -hex 32
 ---
 
 ## Endpoints
+
+### Salesforce General Endpoints
+
+| # | Method | Path | Purpose |
+|---|--------|------|---------|
+| 1 | POST   | `/api/salesforce/logs`    | Write an audit log entry |
+| 2 | POST   | `/api/salesforce/records` | Upsert a Salesforce record |
+| 3 | GET    | `/api/salesforce/records` | Query Salesforce records |
+
+### AI Execution Sync Endpoints
+
+| # | Method | Path | Purpose |
+|---|--------|------|---------|
+| 4 | POST   | `/api/executions`                              | Create execution document (workflow start) |
+| 5 | PATCH  | `/api/executions/:id/status`                   | Update execution status |
+| 6 | PATCH  | `/api/executions/:id/steps`                    | Push a new step sub-document |
+| 7 | PATCH  | `/api/executions/:id/steps/:stepExecId`        | Update an existing step (complete/fail) |
+| 8 | PATCH  | `/api/executions/:id/finalise`                 | Finalise execution (set duration, tokens) |
+| 9 | POST   | `/api/executions/query`                        | Query executions with filter/sort/pagination |
+| 10| POST   | `/api/executions/aggregate`                    | Run aggregation pipeline (dashboard metrics) |
+
+---
 
 ### 1. Write a Log Entry
 
@@ -409,12 +431,272 @@ if (res.getStatusCode() == 200) {
 
 ---
 
+---
+
+## AI Execution Sync Endpoints
+
+These endpoints are called automatically by `MongoDBLogService.cls` during every AI workflow execution. They persist the full execution lifecycle — including every step start, completion, and failure — into MongoDB so the Execution Monitor dashboard has live data.
+
+All endpoints share the same `x-api-key` authentication.
+
+---
+
+### 4. Start Execution
+
+**`POST /api/executions`**
+
+Creates a new execution document in MongoDB when a workflow is triggered. Called once per execution at the PENDING stage.
+
+#### Request Body
+
+| Field             | Type    | Required | Description |
+|-------------------|---------|----------|-------------|
+| `sf_execution_id` | string  | Yes      | 24-char hex correlation ID stored on `AI_Execution__c.Mongo_Execution_Id__c` |
+| `sf_workflow_id`  | string  | No       | Salesforce `AI_Workflow__c` record ID |
+| `workflow_name`   | string  | No       | Workflow name |
+| `workflow_version`| integer | No       | Workflow version number |
+| `sf_org_id`       | string  | No       | Salesforce org ID |
+| `status`          | string  | No       | Initial status (default: `PENDING`) |
+| `initiated_by`    | string  | No       | Salesforce user ID |
+| `trigger_record_id`| string | No       | ID of the record that triggered the workflow |
+| `trigger_object`  | string  | No       | API name of the trigger object |
+| `retry_count`     | integer | No       | Retry attempt number (default: `0`) |
+| `schema_version`  | integer | No       | Document schema version (default: `1`) |
+| `started_at`      | object  | No       | MongoDB Extended JSON date: `{"$date":{"$numberLong":"<ms>"}}` |
+
+#### Response
+
+**201 Created**
+```json
+{ "success": true }
+```
+
+**400 Bad Request**
+```json
+{ "error": "Missing required field: sf_execution_id" }
+```
+
+---
+
+### 5. Update Execution Status
+
+**`PATCH /api/executions/:id/status`**
+
+Updates the status of an execution. Called at every status transition:
+`PENDING → RUNNING → COMPLETED / FAILED / RETRYING`
+
+`:id` is the `sf_execution_id` (24-char hex).
+
+#### Request Body
+
+| Field          | Type   | Required | Description |
+|----------------|--------|----------|-------------|
+| `status`       | string | Yes      | One of: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `RETRYING` |
+| `errorMessage` | string | No       | Error details (set on FAILED or RETRYING) |
+
+#### Response
+
+**200 OK**
+```json
+{ "success": true }
+```
+
+**404 Not Found**
+```json
+{ "error": "Execution not found" }
+```
+
+---
+
+### 6. Push Step (Start)
+
+**`PATCH /api/executions/:id/steps`**
+
+Appends a new step sub-document to the execution's `steps` array. Called when each step begins (status = `RUNNING`).
+
+#### Request Body
+
+```json
+{
+  "step": {
+    "sfStepExecutionId": "AI_Step_Execution__c record ID",
+    "sfStepId":          "AI_Step__c record ID",
+    "stepName":          "Step label",
+    "stepType":          "AI_INFERENCE | DECISION | HTTP_CALLOUT | ...",
+    "stepOrder":         1,
+    "status":            "RUNNING",
+    "retryAttempt":      0
+  }
+}
+```
+
+| Field               | Type    | Required | Description |
+|---------------------|---------|----------|-------------|
+| `step`              | object  | Yes      | Step sub-document |
+| `step.sfStepExecutionId` | string | Yes | Used as the update key in subsequent calls |
+| `step.stepType`     | string  | No       | Step type enum value |
+| `step.stepOrder`    | integer | No       | Execution order (1-based) |
+
+#### Response
+
+**200 OK**
+```json
+{ "success": true }
+```
+
+---
+
+### 7. Update Step (Complete or Fail)
+
+**`PATCH /api/executions/:id/steps/:stepExecId`**
+
+Updates an existing step sub-document (matched by `sf_step_execution_id`). Called when a step finishes — success or failure — with all result fields populated.
+
+`:stepExecId` is the `sfStepExecutionId` passed when the step was pushed.
+
+#### Request Body
+
+All fields are optional — only non-null fields are applied.
+
+| Field              | Type    | Description |
+|--------------------|---------|-------------|
+| `status`           | string  | `COMPLETED` or `FAILED` |
+| `providerUsed`     | string  | AI provider name |
+| `modelUsed`        | string  | Model identifier |
+| `promptSent`       | string  | Resolved prompt text |
+| `rawResponse`      | string  | Raw API response body |
+| `parsedOutput`     | string  | Extracted/parsed content |
+| `tokensUsed`       | integer | Total tokens consumed |
+| `promptTokens`     | integer | Prompt token count |
+| `completionTokens` | integer | Completion token count |
+| `httpStatusCode`   | integer | HTTP status from AI provider |
+| `durationMs`       | integer | Step duration in milliseconds |
+| `errorMessage`     | string  | Error detail on failure |
+| `retryAttempt`     | integer | Retry attempt number |
+
+#### Response
+
+**200 OK**
+```json
+{ "success": true }
+```
+
+**404 Not Found**
+```json
+{ "error": "Execution or step not found" }
+```
+
+---
+
+### 8. Finalise Execution
+
+**`PATCH /api/executions/:id/finalise`**
+
+Sets the terminal state of a completed or failed execution: `completed_at`, `duration_seconds`, `total_tokens_used`, final status, and optional context snapshot. Called once after all steps finish.
+
+#### Request Body
+
+| Field                | Type    | Required | Description |
+|----------------------|---------|----------|-------------|
+| `status`             | string  | No       | Final status (`COMPLETED` or `FAILED`) |
+| `durationSeconds`    | decimal | No       | Total wall-clock duration |
+| `totalTokensUsed`    | integer | No       | Sum of all step token usage |
+| `completedAtEpochMs` | number  | No       | Epoch milliseconds for `completed_at` |
+| `contextJson`        | string  | No       | Serialised execution context map |
+| `errorMessage`       | string  | No       | Final error message on failure |
+
+#### Response
+
+**200 OK**
+```json
+{ "success": true }
+```
+
+---
+
+### 9. Query Executions
+
+**`POST /api/executions/query`**
+
+Queries execution documents with filtering, sorting, and pagination. Used by the Execution Monitor dashboard to display the log table.
+
+#### Request Body
+
+| Field        | Type    | Required | Default       | Description |
+|--------------|---------|----------|---------------|-------------|
+| `filter`     | object  | No       | `{}`          | MongoDB filter expression (snake_case field names) |
+| `sort`       | object  | No       | `{"started_at":-1}` | Sort fields and direction (`1` = ASC, `-1` = DESC) |
+| `skip`       | integer | No       | `0`           | Documents to skip |
+| `limit`      | integer | No       | `20`          | Max documents to return (capped at `200`) |
+| `projection` | object  | No       | —             | MongoDB projection (field inclusion/exclusion) |
+
+#### Supported Filter Fields
+
+| Field              | Example value |
+|--------------------|---------------|
+| `status`           | `"COMPLETED"` |
+| `workflow_name`    | `{"$regex":"Case","$options":"i"}` |
+| `started_at`       | `{"$gte":{"$date":{"$numberLong":"<ms>"}}}` |
+| `sf_execution_id`  | `"abc123..."` |
+
+#### Response
+
+**200 OK**
+```json
+{
+  "documents":  [ { ... } ],
+  "totalCount": 142
+}
+```
+
+---
+
+### 10. Aggregate Executions
+
+**`POST /api/executions/aggregate`**
+
+Runs a MongoDB aggregation pipeline on the executions collection. Used for dashboard metrics (counts, average duration, token usage by provider).
+
+Date values in the pipeline can be passed as MongoDB Extended JSON: `{"$date":{"$numberLong":"<epochMs>"}}` — the API resolves them to native `Date` objects before executing.
+
+#### Request Body
+
+| Field      | Type  | Required | Description |
+|------------|-------|----------|-------------|
+| `pipeline` | array | Yes      | MongoDB aggregation pipeline stages |
+
+#### Example — Count by status
+
+```json
+{
+  "pipeline": [
+    { "$match": { "started_at": { "$gte": { "$date": { "$numberLong": "1700000000000" } } } } },
+    { "$group": { "_id": "$status", "count": { "$sum": 1 } } }
+  ]
+}
+```
+
+#### Response
+
+**200 OK**
+```json
+{
+  "documents": [
+    { "_id": "COMPLETED", "count": 87 },
+    { "_id": "FAILED",    "count": 12 }
+  ]
+}
+```
+
+---
+
 ## MongoDB Collections
 
-| Collection  | Purpose                                      |
-|-------------|----------------------------------------------|
-| `logs`      | Append-only audit trail — never mutated      |
-| `records`   | Upserted records keyed by `sfRecordId`       |
+| Collection      | Purpose |
+|-----------------|---------|
+| `logs`          | Append-only audit trail from `POST /api/salesforce/logs` |
+| `records`       | Upserted Salesforce records keyed by `sfRecordId` |
+| `ai_executions` | AI workflow execution documents with embedded step sub-documents |
 
 ---
 
@@ -422,8 +704,9 @@ if (res.getStatusCode() == 200) {
 
 Configure these in your Vercel project under **Settings → Environment Variables**:
 
-| Variable             | Description                                                |
-|----------------------|------------------------------------------------------------|
-| `MONGODB_URI`        | MongoDB connection string (from MongoDB Atlas)             |
-| `MONGODB_DB_NAME`    | MongoDB database name (default: `salesforce`)              |
-| `SALESFORCE_API_KEY` | Shared secret — generate with `openssl rand -hex 32`       |
+| Variable                          | Description |
+|-----------------------------------|-------------|
+| `MONGODB_URI`                     | MongoDB connection string (from MongoDB Atlas) |
+| `MONGODB_DB_NAME`                 | MongoDB database name (default: `salesforce`) |
+| `MONGODB_EXECUTIONS_COLLECTION`   | AI executions collection name (default: `ai_executions`) |
+| `SALESFORCE_API_KEY`              | Shared secret — generate with `openssl rand -hex 32` |
