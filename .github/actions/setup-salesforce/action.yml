@@ -30,18 +30,16 @@ runs:
         cache: 'npm'
         cache-dependency-path: '**/package-lock.json'
 
-    # Layer 1: npm global install dir (contains the `sf` binary)
-    - name: Cache npm global packages
+    # Cache the npm download cache only — never cache global bin/symlinks
+    # because symlinks restored by actions/cache don't resolve correctly
+    # across jobs, causing "sf binary not found" errors.
+    - name: Cache npm download cache
       id: cache-npm-global
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.npm
-          /usr/local/lib/node_modules/@salesforce
-          /usr/local/bin/sf
-        key: npm-global-${{ runner.os }}-node${{ inputs.node-version }}-sf${{ inputs.sf-cli-version }}-${{ hashFiles('**/package-lock.json') }}
+        path: ~/.npm
+        key: npm-global-${{ runner.os }}-node${{ inputs.node-version }}-sf${{ inputs.sf-cli-version }}
         restore-keys: |
-          npm-global-${{ runner.os }}-node${{ inputs.node-version }}-sf${{ inputs.sf-cli-version }}-
           npm-global-${{ runner.os }}-node${{ inputs.node-version }}-
 
     # Layer 2: SF CLI config, plugins, and auth store
@@ -53,17 +51,19 @@ runs:
           ~/.sf
           ~/.config/sf
           ~/.local/share/sf
-        key: sf-config-${{ runner.os }}-sf${{ inputs.sf-cli-version }}-${{ hashFiles('**/package-lock.json') }}
+        key: sf-config-${{ runner.os }}-sf${{ inputs.sf-cli-version }}
         restore-keys: |
           sf-config-${{ runner.os }}-sf${{ inputs.sf-cli-version }}-
           sf-config-${{ runner.os }}-
 
+    # Always install — npm uses ~/.npm tarball cache so this is fast on cache hit
     - name: Install Salesforce CLI
-      if: steps.cache-npm-global.outputs.cache-hit != 'true'
       shell: bash
       run: |
         npm install -g @salesforce/cli@${{ inputs.sf-cli-version }} --loglevel=error
-        echo "Installed: $(sf --version 2>&1 | head -n 1)"
+        # Ensure npm global bin is on PATH for subsequent steps
+        NPM_GLOBAL_BIN=$(npm root -g)/../bin
+        echo "$NPM_GLOBAL_BIN" >> "$GITHUB_PATH"
 
     - name: Verify Salesforce CLI
       id: verify
