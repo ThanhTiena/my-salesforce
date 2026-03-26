@@ -126,6 +126,9 @@ export default class AiPropertiesPanel extends LightningElement {
     get httpBodyPlaceholder()      { return '{"key": "value"}'; }
     get flowInputsPlaceholder()    { return '{"varName": "contextValue"}'; }
     get notificationPlaceholder()  { return 'e.g. Workflow complete. Output: see execution log.'; }
+    get httpCalloutHint()          { return 'Use context values in Body with {contextKey}. Named Credential must exist in Setup \u2192 Named Credentials.'; }
+    get notificationHint()         { return 'Use {contextKey} in Subject and Body to inject execution context values, e.g. {step_1_output}.'; }
+    get loopHint()                 { return 'Each iteration adds {itemKey} and {indexKey} to context. The collection must be a newline-separated string stored in the context key above.'; }
 
     get isAiInference()   { return this.nodeType === 'AI_INFERENCE';  }
     get isDecision()      { return this.nodeType === 'DECISION';      }
