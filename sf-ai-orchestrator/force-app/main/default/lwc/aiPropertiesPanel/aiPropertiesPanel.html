@@ -318,7 +318,7 @@
                             data-field="timeoutMs"
                             onchange={handleFieldChange}>
                         </lightning-input>
-                        <p class="props-hint">Use context values in Body with <code>{"{"}contextKey{"}"}</code>. Named Credential must exist in Setup → Named Credentials.</p>
+                        <p class="props-hint">{httpCalloutHint}</p>
                     </div>
                 </template>
 
@@ -410,7 +410,7 @@
                             onchange={handleFieldChange}
                             required>
                         </lightning-textarea>
-                        <p class="props-hint">Use <code>{"{"}contextKey{"}"}</code> in Subject and Body to inject execution context values, e.g. <code>{"{"}step_1_output{"}"}</code>.</p>
+                        <p class="props-hint">{notificationHint}</p>
                     </div>
                 </template>
 
@@ -440,7 +440,7 @@
                             data-field="indexKey"
                             onchange={handleFieldChange}>
                         </lightning-input>
-                        <p class="props-hint">Each iteration adds <code>{"{"}itemKey{"}"}</code> and <code>{"{"}indexKey{"}"}</code> to context. The collection must be a newline-separated string stored in the context key above.</p>
+                        <p class="props-hint">{loopHint}</p>
                     </div>
                 </template>
 
