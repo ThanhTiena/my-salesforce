@@ -135,10 +135,13 @@ export default class AiPropertiesPanel extends LightningElement {
     get isWait()          { return this.nodeType === 'WAIT';          }
     get isNotification()  { return this.nodeType === 'NOTIFICATION';  }
     get isSubflow()       { return this.nodeType === 'SUBFLOW';       }
+    get isLoop()          { return this.nodeType === 'LOOP';          }
 
-    // Show generic condition for types that can be skipped
+    // Show generic condition textarea only for types that use it as a skip-condition,
+    // not for types that pack their full config into Condition__c as JSON.
     get showCondition() {
-        return !['START', 'END', 'DECISION'].includes(this.nodeType);
+        return !['START', 'END', 'DECISION', 'HTTP_CALLOUT', 'APEX_ACTION',
+                 'FLOW_LAUNCH', 'NOTIFICATION', 'LOOP', 'WAIT', 'SUBFLOW'].includes(this.nodeType);
     }
 
     get providerOptions() {
@@ -270,9 +273,14 @@ export default class AiPropertiesPanel extends LightningElement {
             waitMinutes           : incoming?.waitMinutes           ?? 5,
             resumeEvent           : incoming?.resumeEvent           ?? '',
             notificationType      : incoming?.notificationType      ?? 'EMAIL',
+            notificationSubject   : incoming?.notificationSubject   ?? '',
             notificationMessage   : incoming?.notificationMessage   ?? '',
             notificationRecipient : incoming?.notificationRecipient ?? '',
             childWorkflowName     : incoming?.childWorkflowName     ?? '',
+            collectionKey         : incoming?.collectionKey         ?? '',
+            itemKey               : incoming?.itemKey               ?? 'item',
+            indexKey              : incoming?.indexKey              ?? 'index',
+            timeoutMs             : incoming?.timeoutMs             ?? 10000,
         };
 
         // Set default model placeholder if provider already selected

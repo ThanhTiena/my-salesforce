@@ -85,17 +85,20 @@ export default class AiExecutionProgress extends LightningElement {
 
     _applyData(data) {
         this.execution = data;
-        this.steps = (data.steps || []).map((s, idx) => {
+        const sorted = [...(data.steps || [])].sort((a, b) => (a.stepOrder || 0) - (b.stepOrder || 0));
+        this.steps = sorted.map((s, idx) => {
             const meta = NODE_META[s.stepType] || { icon: '●', label: s.stepType };
             return {
                 ...s,
                 icon           : meta.icon,
-                nodeClass      : this._nodeClass(s),
-                ringClass      : this._ringClass(s.status),
-                connectorClass : this._connectorClass(s.status, idx),
-                showConnector  : idx > 0,
+                nodeClass        : this._nodeClass(s),
+                ringClass        : this._ringClass(s.status),
+                connectorClass   : this._connectorClass(s.status, idx),
+                showConnector    : idx > 0,
                 statusBadgeClass : STATUS_BADGE[s.status] || STATUS_BADGE.PENDING,
-                durationDisplay : s.durationMs != null ? (s.durationMs < 1000 ? s.durationMs + 'ms' : (s.durationMs / 1000).toFixed(1) + 's') : null,
+                stepStatusClass  : this._stepStatusClass(s.status),
+                isStepRunning    : (s.status || '').toUpperCase() === 'RUNNING',
+                durationDisplay  : s.durationMs != null ? (s.durationMs < 1000 ? s.durationMs + 'ms' : (s.durationMs / 1000).toFixed(1) + 's') : null,
             };
         });
 
@@ -144,6 +147,12 @@ export default class AiExecutionProgress extends LightningElement {
         if (s === 'FAILED')    return 'ring ring--failed';
         if (s === 'RETRYING')  return 'ring ring--retrying';
         return 'ring ring--pending';
+    }
+
+    _stepStatusClass(status) {
+        const s = (status || 'PENDING').toUpperCase();
+        const map = { COMPLETED: 'step-status step-status--done', FAILED: 'step-status step-status--failed', RUNNING: 'step-status step-status--running', RETRYING: 'step-status step-status--retrying' };
+        return map[s] || 'step-status step-status--pending';
     }
 
     _connectorClass(status, idx) {
