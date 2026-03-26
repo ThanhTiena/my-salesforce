@@ -79,6 +79,14 @@
 
                                 <span class="step-label">{step.stepName}</span>
 
+                                <!-- Per-step status badge -->
+                                <div class={step.stepStatusClass}>
+                                    <template if:true={step.isStepRunning}>
+                                        <span class="step-status-spinner"></span>
+                                    </template>
+                                    <span class="step-status-text">{step.status}</span>
+                                </div>
+
                                 <!-- Duration badge -->
                                 <template if:true={step.durationMs}>
                                     <span class="step-duration">{step.durationDisplay}</span>

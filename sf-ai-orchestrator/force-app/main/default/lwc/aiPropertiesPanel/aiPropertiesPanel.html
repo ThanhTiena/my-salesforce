@@ -259,12 +259,17 @@
                         <lightning-textarea
                             label="Condition Expression"
                             value={stepData.condition}
-                            placeholder="e.g. context.score >= 70"
+                            placeholder="CONTEXT_KEY==value  or  LAST_OUTPUT_CONTAINS:keyword"
                             rows="3"
                             data-field="condition"
                             onchange={handleFieldChange}
                             required>
                         </lightning-textarea>
+                        <p class="props-hint">
+                            Supported formats:<br/>
+                            • Exact match: <code>step_1_output==approved</code><br/>
+                            • Contains: <code>LAST_OUTPUT_CONTAINS:yes</code>
+                        </p>
                     </div>
                 </template>
 
@@ -303,6 +308,17 @@
                             data-field="httpBody"
                             onchange={handleFieldChange}>
                         </lightning-textarea>
+                        <lightning-input
+                            type="number"
+                            label="Timeout (ms)"
+                            value={stepData.timeoutMs}
+                            min="1000"
+                            max="120000"
+                            placeholder="10000"
+                            data-field="timeoutMs"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+                        <p class="props-hint">Use context values in Body with <code>{"{"}contextKey{"}"}</code>. Named Credential must exist in Setup → Named Credentials.</p>
                     </div>
                 </template>
 
@@ -370,28 +386,61 @@
                 <template if:true={isNotification}>
                     <div class="props-section props-section--bordered">
                         <p class="props-section-title">Notification</p>
-                        <lightning-combobox
-                            label="Notification Type"
-                            value={stepData.notificationType}
-                            options={notificationTypeOptions}
-                            data-field="notificationType"
+                        <lightning-input
+                            label="To Address (email)"
+                            value={stepData.notificationRecipient}
+                            placeholder="e.g. ops@company.com"
+                            data-field="notificationRecipient"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-input>
+                        <lightning-input
+                            label="Subject"
+                            value={stepData.notificationSubject}
+                            placeholder="e.g. Workflow complete: {step_1_output}"
+                            data-field="notificationSubject"
                             onchange={handleFieldChange}>
-                        </lightning-combobox>
+                        </lightning-input>
                         <lightning-textarea
-                            label="Message Template"
+                            label="Body Template"
                             value={stepData.notificationMessage}
-                            rows="3"
+                            rows="4"
                             placeholder={notificationPlaceholder}
                             data-field="notificationMessage"
                             onchange={handleFieldChange}
                             required>
                         </lightning-textarea>
+                        <p class="props-hint">Use <code>{"{"}contextKey{"}"}</code> in Subject and Body to inject execution context values, e.g. <code>{"{"}step_1_output{"}"}</code>.</p>
+                    </div>
+                </template>
+
+                <!-- ── LOOP fields ── -->
+                <template if:true={isLoop}>
+                    <div class="props-section props-section--bordered">
+                        <p class="props-section-title">Loop Configuration</p>
                         <lightning-input
-                            label="Recipient (email or userId)"
-                            value={stepData.notificationRecipient}
-                            data-field="notificationRecipient"
+                            label="Collection Context Key"
+                            value={stepData.collectionKey}
+                            placeholder="e.g. step_1_output"
+                            data-field="collectionKey"
+                            onchange={handleFieldChange}
+                            required>
+                        </lightning-input>
+                        <lightning-input
+                            label="Item Variable Name"
+                            value={stepData.itemKey}
+                            placeholder="item"
+                            data-field="itemKey"
                             onchange={handleFieldChange}>
                         </lightning-input>
+                        <lightning-input
+                            label="Index Variable Name"
+                            value={stepData.indexKey}
+                            placeholder="index"
+                            data-field="indexKey"
+                            onchange={handleFieldChange}>
+                        </lightning-input>
+                        <p class="props-hint">Each iteration adds <code>{"{"}itemKey{"}"}</code> and <code>{"{"}indexKey{"}"}</code> to context. The collection must be a newline-separated string stored in the context key above.</p>
                     </div>
                 </template>
 

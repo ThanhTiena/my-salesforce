@@ -34,6 +34,91 @@ function bezierPath(x1, y1, x2, y2) {
     return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
 }
 
+/**
+ * Serialise per-type config fields into Condition__c.
+ * AI_INFERENCE uses dedicated SF fields — Condition__c stays as the skip condition.
+ * All other handler types pack their config as JSON into Condition__c.
+ */
+function _buildConditionJson(type, d) {
+    switch (type) {
+        case 'DECISION':
+            // Plain string — kept as-is (e.g. "CONTEXT_KEY==value")
+            return d.condition || null;
+        case 'HTTP_CALLOUT':
+            return JSON.stringify({
+                namedCredential : d.namedCredential || '',
+                path            : d.httpPath        || '',
+                method          : d.httpMethod      || 'POST',
+                body            : d.httpBody        || null,
+                timeoutMs       : d.timeoutMs       || 10000,
+            });
+        case 'APEX_ACTION':
+            return JSON.stringify({ className: d.apexClassName || '' });
+        case 'FLOW_LAUNCH': {
+            let inputVars = {};
+            if (d.flowInputs) {
+                try { inputVars = JSON.parse(d.flowInputs); } catch (e) { /* ignore */ }
+            }
+            return JSON.stringify({ flowApiName: d.flowApiName || '', inputVariables: inputVars });
+        }
+        case 'NOTIFICATION':
+            return JSON.stringify({
+                toAddress : d.notificationRecipient || '',
+                subject   : d.notificationSubject   || '',
+                body      : d.notificationMessage   || '',
+            });
+        case 'LOOP':
+            return JSON.stringify({
+                collectionKey : d.collectionKey || '',
+                itemKey       : d.itemKey       || 'item',
+                indexKey      : d.indexKey      || 'index',
+            });
+        case 'WAIT':
+            return JSON.stringify({ delayMinutes: d.waitMinutes || 5 });
+        case 'SUBFLOW':
+            return JSON.stringify({ childWorkflowName: d.childWorkflowName || '' });
+        default:
+            // START, END, AI_INFERENCE — no handler config needed
+            return d.condition || null;
+    }
+}
+
+/**
+ * Parse Condition__c back into per-type stepData fields when loading a step.
+ * Merges with the AI-inference-specific fields already extracted from dedicated columns.
+ */
+function _parseConditionJson(type, conditionValue, aiFields) {
+    const base = { ...aiFields, condition: null };
+    if (!conditionValue) return base;
+
+    // Non-JSON types keep condition as-is
+    if (type === 'DECISION' || type === 'START' || type === 'END' || type === 'AI_INFERENCE') {
+        return { ...base, condition: conditionValue };
+    }
+
+    let cfg = {};
+    try { cfg = JSON.parse(conditionValue); } catch (e) { return base; }
+
+    switch (type) {
+        case 'HTTP_CALLOUT':
+            return { ...base, namedCredential: cfg.namedCredential, httpPath: cfg.path, httpMethod: cfg.method || 'POST', httpBody: cfg.body, timeoutMs: cfg.timeoutMs };
+        case 'APEX_ACTION':
+            return { ...base, apexClassName: cfg.className };
+        case 'FLOW_LAUNCH':
+            return { ...base, flowApiName: cfg.flowApiName, flowInputs: cfg.inputVariables ? JSON.stringify(cfg.inputVariables) : '' };
+        case 'NOTIFICATION':
+            return { ...base, notificationRecipient: cfg.toAddress, notificationSubject: cfg.subject, notificationMessage: cfg.body };
+        case 'LOOP':
+            return { ...base, collectionKey: cfg.collectionKey, itemKey: cfg.itemKey || 'item', indexKey: cfg.indexKey || 'index' };
+        case 'WAIT':
+            return { ...base, waitMinutes: cfg.delayMinutes || 5 };
+        case 'SUBFLOW':
+            return { ...base, childWorkflowName: cfg.childWorkflowName };
+        default:
+            return base;
+    }
+}
+
 export default class AiWorkflowDesigner extends LightningElement {
 
     // ─── Public API ───────────────────────────────────────────────────────────
@@ -218,7 +303,7 @@ export default class AiWorkflowDesigner extends LightningElement {
                 isHoriz ? y                  : y + idx * SPACING,
                 step.Id,
                 step.Name,
-                {
+                _parseConditionJson(step.Step_Type__c, step.Condition__c, {
                     providerDeveloperName : step.AI_Provider_Developer_Name__c,
                     modelOverride         : step.Model_Override__c,
                     promptTemplate        : step.Prompt_Template__c,
@@ -227,8 +312,7 @@ export default class AiWorkflowDesigner extends LightningElement {
                     responseFormat        : step.Response_Format__c || 'TEXT',
                     temperature           : step.Temperature_Override__c,
                     maxTokens             : step.Max_Tokens_Override__c,
-                    condition             : step.Condition__c,
-                }
+                })
             );
         });
 
@@ -540,7 +624,7 @@ export default class AiWorkflowDesigner extends LightningElement {
                     AI_Workflow__c   : this._workflowId,
                     Step_Type__c     : node.type,
                     Order__c         : idx + 1,
-                    Is_Active__c     : true,
+                    Is_Active__c     : d.isActive !== false,
                     AI_Provider_Developer_Name__c : d.providerDeveloperName || null,
                     Model_Override__c             : d.modelOverride         || null,
                     Prompt_Template__c            : d.promptTemplate        || null,
@@ -549,7 +633,7 @@ export default class AiWorkflowDesigner extends LightningElement {
                     Response_Format__c            : d.responseFormat        || 'TEXT',
                     Temperature_Override__c       : d.temperature           || null,
                     Max_Tokens_Override__c        : d.maxTokens             || null,
-                    Condition__c                  : d.condition             || null,
+                    Condition__c                  : _buildConditionJson(node.type, d),
                 };
             });
 
