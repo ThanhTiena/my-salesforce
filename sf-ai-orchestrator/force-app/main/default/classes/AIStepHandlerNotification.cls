@@ -26,8 +26,11 @@ public with sharing class AIStepHandlerNotification implements AIStepHandler {
         String subject   = (String) config.get('subject');
         String body      = (String) config.get('body');
 
+        if (String.isBlank(step.Condition__c)) {
+            return AIStepResult.fail('NOTIFICATION step "' + step.Name + '" has no configuration saved. Open the workflow in the designer, select this step, fill in the To Address field, and click Save.');
+        }
         if (String.isBlank(toAddress)) {
-            return AIStepResult.fail('NOTIFICATION requires "toAddress" in Condition__c JSON.');
+            return AIStepResult.fail('NOTIFICATION step "' + step.Name + '" is missing a To Address. Open the workflow in the designer, select this step, fill in the To Address field, and click Save.');
         }
 
         // Basic email format validation

@@ -228,6 +228,15 @@ export default class AiWorkflowDesigner extends LightningElement {
             this.workflow = data.workflow;
             const steps   = data.steps || [];
             this._importFromJson(this.workflow?.Canvas_JSON__c, steps);
+
+            // If any step that requires JSON config has a blank Condition__c (e.g. saved
+            // before the _buildConditionJson fix was deployed), mark dirty so the next save
+            // will migrate the config from node.data into Condition__c automatically.
+            const JSON_CONFIG_TYPES = new Set(['NOTIFICATION', 'HTTP_CALLOUT', 'APEX_ACTION', 'FLOW_LAUNCH', 'LOOP', 'WAIT', 'SUBFLOW']);
+            if (steps.some(s => JSON_CONFIG_TYPES.has(s.Step_Type__c) && !s.Condition__c)) {
+                this.isDirty = true;
+            }
+
             // Notify parent with workflow record so properties panel can show settings
             this.dispatchEvent(new CustomEvent('workflowloaded', { detail: { workflow: this.workflow } }));
         } catch (e) {
