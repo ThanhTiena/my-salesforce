@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "path": "/Users/tiennguyenthanh/Desktop/Work/fl/src/my-dev/my-salesforce"
+    }
+  ],
+  "settings": {
+    "eslint.workingDirectories": [
+      "/Users/tiennguyenthanh/Desktop/Work/fl/src/my-dev/my-salesforce"
+    ],
+    "eslint.validate": [
+      "javascript",
+      "typescript"
+    ],
+    "eslint.options": {
+      "overrideConfigFile": "/Users/tiennguyenthanh/Desktop/Work/fl/src/my-dev/my-salesforce/.eslintrc.json"
+    }
+  }
+}
