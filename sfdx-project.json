@@ -3,10 +3,22 @@
     {
       "path": "force-app",
       "default": true
+    },
+    {
+      "versionName": "ver 0.1",
+      "versionNumber": "0.1.0.NEXT",
+      "path": "mongodb-package",
+      "default": false,
+      "package": "MongoDB-Salesforce-Connect",
+      "versionDescription": "Salesforce Connect adapter for MongoDB integration via Data API. Provides full CRUD operations, SOQL/SOSL support, and secure credential management."
     }
   ],
   "name": "my-salesforce",
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "64.0"
+  "sourceApiVersion": "64.0",
+  "packageAliases": {
+    "MongoDB-Salesforce-Connect": "0HoDn000000kAOrKAM",
+    "MongoDB-Salesforce-Connect@0.1.0-1": "04tDn00000070WSIAY"
+  }
 }
