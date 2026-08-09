@@ -381,9 +381,9 @@ export default function Dashboard() {
       {/* Active projects table */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Active projects</CardTitle>
+          <CardTitle>Active &amp; upcoming projects</CardTitle>
           <CardDescription>
-            In-flight work sorted by due date.
+            In-flight work (active, planning, and on-hold) sorted by due date.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">

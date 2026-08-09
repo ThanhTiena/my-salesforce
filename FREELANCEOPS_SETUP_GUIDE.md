@@ -59,8 +59,17 @@ difference. Utilisation, gross margin and cash forecast all derive from these.
 - A Dev Hub org (the "ABC" Developer Edition org is Dev Hub **only** — never
   deploy FreelanceOps metadata to it by hand)
 - All development happens in **scratch orgs**. This project's
-  `config/project-scratch-def.json` already enables the `MultiCurrency`
-  feature, which the frozen-rate design depends on.
+  `config/project-scratch-def.json` already enables the features the package
+  depends on:
+  - **`MultiCurrency`** — the frozen-rate design and every `*_Base__c` field.
+  - **`orderSettings.enableOrders`** — the package adds 17 custom fields to
+    `Order` and 6 to `OrderItem` (the Invoice / Invoice Line model). Without
+    Orders enabled the target org has no `Order` object and the deploy fails
+    with *"Order is not enabled"* / an unknown-object error on those fields.
+
+  > The target org must have **both** features on. This is the most common
+  > reason the package "won't deploy" even though the metadata is valid — see
+  > §7 Troubleshooting.
 
 > ⚠️ **Never enable Multiple Currencies in a persistent org** without an
 > explicit, recorded decision — it is irreversible.
@@ -176,3 +185,33 @@ Apex service layer (`CurrencyService`, `SequenceService`,
 `timeLogger` LWC, invoice generation/PDF, reports and dashboards, and
 Email-to-Case. See the handoff prompt and blueprint docs for the full backlog
 and dependency order.
+
+---
+
+## 7. Troubleshooting a failed deploy
+
+The metadata is internally validated: every XML file is well-formed, every
+permission-set / app / tab reference resolves, every `referenceTo`, formula
+reference, and roll-up summary (`summarizedField` / `summaryForeignKey` /
+filter) points at a field that exists in the package, and every picklist
+carries an inline value set. So a deploy failure is almost always an **org
+feature or target** problem, not missing metadata. Check these in order:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Order is not enabled` / unknown object on `Order`/`OrderItem` fields | Orders feature off in the target org | Enable Orders. Scratch: already set via `orderSettings.enableOrders` in the scratch def — recreate the org. Persistent org: **Setup → Order Settings → Enable Orders**. |
+| Errors on `*_Base__c` / currency fields, or `convertCurrency` | Multi-Currency off | Scratch: `MultiCurrency` is in the scratch def — recreate the org. Persistent org: enabling Multiple Currencies is **irreversible** — do it only with a recorded decision (see §2). |
+| `INVALID_CROSS_REFERENCE` on a record-type field, or record types don't appear | The 13 record types are **not** in this package (they were created directly in the org) | Assign them in Setup (§4.1). They are not required for the schema deploy itself. |
+| A field/object "already exists" or "insufficient access" on the **DE org** | Deploying FreelanceOps to the "ABC" Dev-Hub org by hand | Don't. It is a Dev Hub only — deploy to a **scratch org** (§3). |
+| Deploy seems to hang or only some folders go | Deploying a partial source set | Deploy the four folders together: `objects`, `tabs`, `permissionsets`, `applications` (see §3), so cross-references resolve in one transaction. |
+
+Validate without deploying first — it reports the exact blocking component:
+
+```bash
+sf project deploy start --dry-run \
+  -d force-app/main/default/objects \
+  -d force-app/main/default/tabs \
+  -d force-app/main/default/permissionsets \
+  -d force-app/main/default/applications \
+  -o <org>
+```
