@@ -48,7 +48,11 @@ export function monthKey(iso: string): string {
   return iso.slice(0, 7);
 }
 
-/** Today's date as YYYY-MM-DD. */
+/** Today's date as YYYY-MM-DD, using the viewer's LOCAL calendar day.
+ *  (toISOString() would use UTC and roll a day early/late off-timezone.) */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`;
 }

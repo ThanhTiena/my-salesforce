@@ -214,6 +214,18 @@ export default function Invoices() {
       toast.error('Choose a client for this invoice.');
       return;
     }
+    // Guard against silently dropping a priced row: any line that contributes
+    // to the previewed total must also be a complete, saveable line — otherwise
+    // the saved invoice would total less than what the dialog showed.
+    const droppedButPriced = lines.find(
+      l =>
+        Number(l.quantity) * Number(l.unitPrice) !== 0 &&
+        !(l.description.trim() && Number(l.quantity) > 0)
+    );
+    if (droppedButPriced) {
+      toast.error('Every priced line needs a description and a quantity above zero.');
+      return;
+    }
     const valid = lines.filter(
       l => l.description.trim() && Number(l.quantity) > 0
     );

@@ -66,7 +66,9 @@ export default function TimeTracking() {
   const [billed, setBilled] = useState(false);
 
   const kpis = useMemo(() => {
-    const monthPrefix = new Date().toISOString().slice(0, 7);
+    // Local YYYY-MM so it matches how entry dates (local calendar days) render.
+    const now = new Date();
+    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     let hoursThisMonth = 0;
     let entriesThisMonth = 0;
     let totalHours = 0;
