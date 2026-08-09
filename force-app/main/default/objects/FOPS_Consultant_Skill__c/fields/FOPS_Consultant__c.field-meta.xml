@@ -5,7 +5,7 @@
     <referenceTo>Contact</referenceTo>
     <relationshipLabel>Skills</relationshipLabel>
     <relationshipName>FOPS_Consultant_Skills</relationshipName>
-    <deleteConstraint>SetNull</deleteConstraint>
+    <deleteConstraint>Restrict</deleteConstraint>
     <required>true</required>
     <type>Lookup</type>
 </CustomField>

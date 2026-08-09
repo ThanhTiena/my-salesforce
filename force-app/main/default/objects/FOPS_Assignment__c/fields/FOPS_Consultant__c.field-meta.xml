@@ -6,7 +6,7 @@
     <referenceTo>Contact</referenceTo>
     <relationshipLabel>Assignments</relationshipLabel>
     <relationshipName>FOPS_Assignments</relationshipName>
-    <deleteConstraint>SetNull</deleteConstraint>
+    <deleteConstraint>Restrict</deleteConstraint>
     <required>true</required>
     <type>Lookup</type>
 </CustomField>

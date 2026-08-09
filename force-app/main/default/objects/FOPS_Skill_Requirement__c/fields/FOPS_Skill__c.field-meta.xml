@@ -5,7 +5,7 @@
     <referenceTo>Product2</referenceTo>
     <relationshipLabel>Skill Requirements</relationshipLabel>
     <relationshipName>FOPS_Skill_Requirements</relationshipName>
-    <deleteConstraint>SetNull</deleteConstraint>
+    <deleteConstraint>Restrict</deleteConstraint>
     <required>true</required>
     <type>Lookup</type>
 </CustomField>

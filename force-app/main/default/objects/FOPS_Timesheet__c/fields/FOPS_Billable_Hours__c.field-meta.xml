@@ -6,7 +6,7 @@
     <summaryFilterItems>
         <field>FOPS_Time_Entry__c.FOPS_Is_Billable__c</field>
         <operation>equals</operation>
-        <value>1</value>
+        <value>True</value>
     </summaryFilterItems>
     <summaryForeignKey>FOPS_Time_Entry__c.FOPS_Timesheet__c</summaryForeignKey>
     <summaryOperation>sum</summaryOperation>

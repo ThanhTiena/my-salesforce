@@ -5,7 +5,7 @@
     <referenceTo>Account</referenceTo>
     <relationshipLabel>Payments</relationshipLabel>
     <relationshipName>FOPS_Payments</relationshipName>
-    <deleteConstraint>SetNull</deleteConstraint>
+    <deleteConstraint>Restrict</deleteConstraint>
     <required>true</required>
     <type>Lookup</type>
 </CustomField>

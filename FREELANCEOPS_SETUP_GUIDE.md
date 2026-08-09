@@ -204,6 +204,10 @@ feature or target** problem, not missing metadata. Check these in order:
 | `INVALID_CROSS_REFERENCE` on a record-type field, or record types don't appear | The 13 record types are **not** in this package (they were created directly in the org) | Assign them in Setup (§4.1). They are not required for the schema deploy itself. |
 | A field/object "already exists" or "insufficient access" on the **DE org** | Deploying FreelanceOps to the "ABC" Dev-Hub org by hand | Don't. It is a Dev Hub only — deploy to a **scratch org** (§3). |
 | Deploy seems to hang or only some folders go | Deploying a partial source set | Deploy the four folders together: `objects`, `tabs`, `permissionsets`, `applications` (see §3), so cross-references resolve in one transaction. |
+| `bad value for restricted picklist field: Event` on every Event field | Custom fields for Tasks/Events must live on the **Activity** object, not `Event` | Interview-round fields are under `objects/Activity/fields/` (they apply to Events). Don't move them back to `Event`. |
+| `must specify either cascade delete or restrict delete for required lookup foreign key` | A **required** lookup used `SetNull` | Required lookups use `<deleteConstraint>Restrict</deleteConstraint>` (or `Cascade`). `SetNull` is only valid for optional lookups. |
+| `Invalid summary filter: Use "True" or "False"` | A roll-up filter on a checkbox used `1`/`0` | Use `<value>True</value>` / `<value>False</value>`. |
+| `<object> does not have history tracking enabled` | A field sets `trackHistory` but the object's history is off | Set `<enableHistory>true</enableHistory>` on the object (already done for Opportunity), or remove `trackHistory` from the field. |
 
 Validate without deploying first — it reports the exact blocking component:
 
