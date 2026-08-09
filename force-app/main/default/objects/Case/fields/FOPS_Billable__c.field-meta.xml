@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Billable__c</fullName>
+    <inlineHelpText>Support work outside contracted scope. Most freelancers give this away unmeasured.</inlineHelpText>
+    <label>Billable</label>
+    <type>Checkbox</type>
+    <defaultValue>false</defaultValue>
+</CustomField>

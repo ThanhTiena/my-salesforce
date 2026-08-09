@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Timesheet__c</fullName>
+    <label>Timesheet</label>
+    <referenceTo>FOPS_Timesheet__c</referenceTo>
+    <relationshipLabel>Invoice Lines</relationshipLabel>
+    <relationshipName>FOPS_InvoiceLines</relationshipName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

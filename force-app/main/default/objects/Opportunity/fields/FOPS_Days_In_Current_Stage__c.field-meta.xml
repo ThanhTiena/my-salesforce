@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Days_In_Current_Stage__c</fullName>
+    <label>Days In Current Stage</label>
+    <formula>IF(ISBLANK(FOPS_Stage_Entered_Date__c), 0, NOW() - FOPS_Stage_Entered_Date__c)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <precision>5</precision>
+    <scale>0</scale>
+    <type>Number</type>
+</CustomField>

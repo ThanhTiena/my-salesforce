@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Channel_Type__c</fullName>
+    <label>Channel Type</label>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Job Board</fullName>
+                <default>false</default>
+                <label>Job Board</label>
+            </value>
+            <value>
+                <fullName>Recruiting Agency</fullName>
+                <default>false</default>
+                <label>Recruiting Agency</label>
+            </value>
+            <value>
+                <fullName>Referral</fullName>
+                <default>false</default>
+                <label>Referral</label>
+            </value>
+            <value>
+                <fullName>Direct Outbound</fullName>
+                <default>false</default>
+                <label>Direct Outbound</label>
+            </value>
+            <value>
+                <fullName>Freelance Marketplace</fullName>
+                <default>false</default>
+                <label>Freelance Marketplace</label>
+            </value>
+            <value>
+                <fullName>Community / Network</fullName>
+                <default>false</default>
+                <label>Community / Network</label>
+            </value>
+            <value>
+                <fullName>Repeat Client</fullName>
+                <default>false</default>
+                <label>Repeat Client</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

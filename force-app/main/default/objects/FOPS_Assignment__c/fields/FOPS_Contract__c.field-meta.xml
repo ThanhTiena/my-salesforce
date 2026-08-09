@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Contract__c</fullName>
+    <inlineHelpText>The signed engagement this assignment is staffed under.</inlineHelpText>
+    <label>Contract</label>
+    <referenceTo>Contract</referenceTo>
+    <relationshipLabel>Assignments</relationshipLabel>
+    <relationshipName>FOPS_Assignments</relationshipName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <required>true</required>
+    <type>Lookup</type>
+</CustomField>

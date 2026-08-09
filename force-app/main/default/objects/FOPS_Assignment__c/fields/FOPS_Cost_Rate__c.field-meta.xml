@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Cost_Rate__c</fullName>
+    <inlineHelpText>What you pay the sub-contractor delivering this work.</inlineHelpText>
+    <label>Cost Rate</label>
+    <precision>18</precision>
+    <scale>2</scale>
+    <type>Currency</type>
+</CustomField>

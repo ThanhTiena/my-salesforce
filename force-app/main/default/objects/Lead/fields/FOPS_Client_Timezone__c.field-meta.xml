@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Client_Timezone__c</fullName>
+    <inlineHelpText>An AEST-only role from Vietnam is a different proposition. Capture it early.</inlineHelpText>
+    <label>Client Timezone</label>
+    <length>80</length>
+    <type>Text</type>
+    <required>false</required>
+    <unique>false</unique>
+</CustomField>

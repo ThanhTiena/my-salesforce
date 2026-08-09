@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Billable_Hours__c</fullName>
+    <label>Billable Hours</label>
+    <summarizedField>FOPS_Time_Entry__c.FOPS_Hours__c</summarizedField>
+    <summaryFilterItems>
+        <field>FOPS_Time_Entry__c.FOPS_Is_Billable__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </summaryFilterItems>
+    <summaryForeignKey>FOPS_Time_Entry__c.FOPS_Timesheet__c</summaryForeignKey>
+    <summaryOperation>sum</summaryOperation>
+    <type>Summary</type>
+</CustomField>

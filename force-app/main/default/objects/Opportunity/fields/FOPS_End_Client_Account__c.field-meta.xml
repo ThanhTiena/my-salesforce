@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_End_Client_Account__c</fullName>
+    <label>End Client</label>
+    <referenceTo>Account</referenceTo>
+    <relationshipLabel>Pursuits (End Client)</relationshipLabel>
+    <relationshipName>FOPS_EndClientOpportunities</relationshipName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

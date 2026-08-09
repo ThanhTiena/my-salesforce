@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Importance__c</fullName>
+    <label>Importance</label>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Must Have</fullName>
+                <default>true</default>
+                <label>Must Have</label>
+            </value>
+            <value>
+                <fullName>Strong Preference</fullName>
+                <default>false</default>
+                <label>Strong Preference</label>
+            </value>
+            <value>
+                <fullName>Nice to Have</fullName>
+                <default>false</default>
+                <label>Nice to Have</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

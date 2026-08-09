@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Actual_Settlement_Rate__c</fullName>
+    <inlineHelpText>The rate the bank actually gave you.</inlineHelpText>
+    <label>Actual Settlement Rate</label>
+    <precision>18</precision>
+    <scale>8</scale>
+    <type>Number</type>
+    <required>false</required>
+</CustomField>

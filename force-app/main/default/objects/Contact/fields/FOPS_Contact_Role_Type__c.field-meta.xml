@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Contact_Role_Type__c</fullName>
+    <label>Contact Role Type</label>
+    <type>MultiselectPicklist</type>
+    <visibleLines>4</visibleLines>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>HR / Recruiter</fullName>
+                <default>false</default>
+                <label>HR / Recruiter</label>
+            </value>
+            <value>
+                <fullName>Hiring Manager</fullName>
+                <default>false</default>
+                <label>Hiring Manager</label>
+            </value>
+            <value>
+                <fullName>Tech Lead</fullName>
+                <default>false</default>
+                <label>Tech Lead</label>
+            </value>
+            <value>
+                <fullName>Procurement</fullName>
+                <default>false</default>
+                <label>Procurement</label>
+            </value>
+            <value>
+                <fullName>Accounts Payable</fullName>
+                <default>false</default>
+                <label>Accounts Payable</label>
+            </value>
+            <value>
+                <fullName>Executive Sponsor</fullName>
+                <default>false</default>
+                <label>Executive Sponsor</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

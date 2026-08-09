@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Credit_Note_For__c</fullName>
+    <label>Credit Note For</label>
+    <referenceTo>Order</referenceTo>
+    <relationshipLabel>Credit Notes</relationshipLabel>
+    <relationshipName>FOPS_CreditNotes</relationshipName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

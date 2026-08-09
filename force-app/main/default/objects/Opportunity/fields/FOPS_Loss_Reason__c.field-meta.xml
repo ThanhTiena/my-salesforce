@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Loss_Reason__c</fullName>
+    <label>Loss Reason</label>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Rate too low</fullName>
+                <default>false</default>
+                <label>Rate too low</label>
+            </value>
+            <value>
+                <fullName>Rate too high for client budget</fullName>
+                <default>false</default>
+                <label>Rate too high for client budget</label>
+            </value>
+            <value>
+                <fullName>Failed technical interview</fullName>
+                <default>false</default>
+                <label>Failed technical interview</label>
+            </value>
+            <value>
+                <fullName>Failed HR / culture screen</fullName>
+                <default>false</default>
+                <label>Failed HR / culture screen</label>
+            </value>
+            <value>
+                <fullName>Skill mismatch</fullName>
+                <default>false</default>
+                <label>Skill mismatch</label>
+            </value>
+            <value>
+                <fullName>Timezone / location mismatch</fullName>
+                <default>false</default>
+                <label>Timezone / location mismatch</label>
+            </value>
+            <value>
+                <fullName>Role cancelled by client</fullName>
+                <default>false</default>
+                <label>Role cancelled by client</label>
+            </value>
+            <value>
+                <fullName>Role filled internally</fullName>
+                <default>false</default>
+                <label>Role filled internally</label>
+            </value>
+            <value>
+                <fullName>Lost to another candidate</fullName>
+                <default>false</default>
+                <label>Lost to another candidate</label>
+            </value>
+            <value>
+                <fullName>Client froze hiring</fullName>
+                <default>false</default>
+                <label>Client froze hiring</label>
+            </value>
+            <value>
+                <fullName>Ghosted / no feedback</fullName>
+                <default>false</default>
+                <label>Ghosted / no feedback</label>
+            </value>
+            <value>
+                <fullName>Withdrew - better offer</fullName>
+                <default>false</default>
+                <label>Withdrew - better offer</label>
+            </value>
+            <value>
+                <fullName>Withdrew - red flags</fullName>
+                <default>false</default>
+                <label>Withdrew - red flags</label>
+            </value>
+            <value>
+                <fullName>Contract terms unacceptable</fullName>
+                <default>false</default>
+                <label>Contract terms unacceptable</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

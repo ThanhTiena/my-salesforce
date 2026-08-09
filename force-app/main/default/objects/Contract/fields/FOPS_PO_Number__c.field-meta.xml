@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_PO_Number__c</fullName>
+    <inlineHelpText>Many clients will not pay without it. Capture before work starts.</inlineHelpText>
+    <label>PO Number</label>
+    <length>80</length>
+    <type>Text</type>
+    <required>false</required>
+    <unique>false</unique>
+</CustomField>

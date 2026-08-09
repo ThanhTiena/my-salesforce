@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Proposed_Consultant__c</fullName>
+    <label>Proposed Consultant</label>
+    <referenceTo>Contact</referenceTo>
+    <relationshipLabel>Proposed Pursuits</relationshipLabel>
+    <relationshipName>FOPS_ProposedPursuits</relationshipName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Ghosted__c</fullName>
+    <inlineHelpText>No client response for 21+ days.</inlineHelpText>
+    <label>Ghosted</label>
+    <type>Checkbox</type>
+    <defaultValue>false</defaultValue>
+</CustomField>

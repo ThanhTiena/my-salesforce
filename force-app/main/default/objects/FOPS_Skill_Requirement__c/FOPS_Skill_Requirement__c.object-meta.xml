@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Junction: Opportunity (JD) to Skill (Product2). NOT OpportunityLineItem - line items roll into Amount.</description>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <enableActivities>true</enableActivities>
+    <enableHistory>true</enableHistory>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <label>Skill Requirement</label>
+    <nameField>
+        <displayFormat>SR-{000000}</displayFormat>
+        <label>Requirement Number</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Skill Requirements</pluralLabel>
+    <sharingModel>Private</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>
