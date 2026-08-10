@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Time_Entry_End__c</fullName>
+    <inlineHelpText>When the work block ended. Hours derive from End minus Start minus paused time.</inlineHelpText>
+    <label>End</label>
+    <required>false</required>
+    <type>DateTime</type>
+</CustomField>

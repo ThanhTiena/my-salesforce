@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Time_Entry_Start__c</fullName>
+    <inlineHelpText>When the work block started (timer/range modes). Used to derive hours and detect overlaps.</inlineHelpText>
+    <label>Start</label>
+    <required>false</required>
+    <type>DateTime</type>
+</CustomField>

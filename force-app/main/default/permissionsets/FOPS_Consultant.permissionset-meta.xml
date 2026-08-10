@@ -93,4 +93,39 @@
         <application>FreelanceOps</application>
         <visible>true</visible>
     </applicationVisibilities>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>FOPS_Time_Entry__c.FOPS_Time_Entry_Start__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>FOPS_Time_Entry__c.FOPS_Time_Entry_End__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>FOPS_Time_Entry__c.FOPS_Entry_Source__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>FOPS_Time_Entry__c.FOPS_Rounded__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>FOPS_Time_Entry__c.FOPS_Bill_Rate_Snapshot__c</field>
+        <readable>false</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>FOPS_Time_Entry__c.FOPS_Cost_Rate_Snapshot__c</field>
+        <readable>false</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>FOPS_Time_Entry__c.FOPS_Billable_Amount__c</field>
+        <readable>false</readable>
+    </fieldPermissions>
 </PermissionSet>

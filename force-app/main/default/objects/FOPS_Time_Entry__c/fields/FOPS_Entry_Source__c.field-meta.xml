@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Entry_Source__c</fullName>
+    <inlineHelpText>How the entry was logged.</inlineHelpText>
+    <label>Entry Source</label>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value><fullName>Manual</fullName><default>true</default><label>Manual</label></value>
+            <value><fullName>Timer</fullName><default>false</default><label>Timer</label></value>
+            <value><fullName>Range</fullName><default>false</default><label>Range</label></value>
+            <value><fullName>Grid</fullName><default>false</default><label>Grid</label></value>
+            <value><fullName>Preset</fullName><default>false</default><label>Preset</label></value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

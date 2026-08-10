@@ -180,8 +180,10 @@ currencies means six entries per product.
    `FOPS_Exchange_Rate_Used__c`, `FOPS_Exchange_Rate_Date__c`, and a stored
    `*_Base__c` currency amount (never a formula). Correcting an FX rate later
    must not silently change historical invoices.
-3. **Bill rate and margin are invisible to sub-contractors.** Ten fields are
-   `readable=false` in `FOPS_Consultant.permissionset-meta.xml`. **Any new
+3. **Bill rate and margin are invisible to sub-contractors.** Rate/cost/margin
+   fields are `readable=false` in `FOPS_Consultant.permissionset-meta.xml`
+   (including the Time Entry snapshots: `FOPS_Bill_Rate_Snapshot__c`,
+   `FOPS_Cost_Rate_Snapshot__c`, `FOPS_Billable_Amount__c`). **Any new
    rate/cost/margin field must be added to that list in the same commit** —
    `FOPS_FieldSecurityTest` asserts it.
 4. **Invoice numbering must be gapless.** Use `FOPS_Invoice_Number__c`
