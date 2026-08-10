@@ -3,7 +3,5 @@
     <fullName>FOPS_Questions_Asked__c</fullName>
     <inlineHelpText>This compounds into a personal interview knowledge base. Log every one.</inlineHelpText>
     <label>Questions Asked</label>
-    <length>32768</length>
-    <type>LongTextArea</type>
-    <visibleLines>8</visibleLines>
+    <type>TextArea</type>
 </CustomField>
