@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { Reveal } from '@/components/motion';
@@ -13,6 +14,7 @@ import {
 import { StatusBadge } from '@/components/status-badge';
 import { formatCurrency, formatDate } from '@/lib/format';
 import {
+  Button,
   Card,
   CardContent,
   Tabs,
@@ -27,23 +29,42 @@ import {
   TableCell,
   Skeleton,
 } from '@/components/ui';
-import { AlertTriangle, Database, Inbox } from 'lucide-react';
+import { AlertTriangle, Database, Inbox, RefreshCw, Plug } from 'lucide-react';
 
-const IN_SF = isSalesforceEnv();
+/**
+ * Fetches a Salesforce list. Env is evaluated by the caller at RENDER time
+ * (never module load) so it can't run before the platform injects SFDC_ENV.
+ * `reload()` re-runs; any GraphQL error is captured verbatim so it's visible.
+ */
+function useSfList<T>(fetcher: () => Promise<T[]>, enabled: boolean) {
+  const [gen, setGen] = useState(0);
+  const { data, loading, error } = useAsyncData<T[]>(
+    () => (enabled ? fetcher() : Promise.resolve([])),
+    [enabled, gen]
+  );
+  return {
+    rows: data ?? [],
+    loading: enabled && loading,
+    error,
+    reload: () => setGen(g => g + 1),
+  };
+}
 
 function StateCard({
   icon: Icon,
   title,
   message,
   tone = 'muted',
+  action,
 }: {
   icon: typeof Inbox;
   title: string;
   message: string;
   tone?: 'muted' | 'danger';
+  action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
       <span
         className={
           tone === 'danger'
@@ -55,8 +76,11 @@ function StateCard({
       </span>
       <div>
         <p className="font-medium text-foreground">{title}</p>
-        <p className="mt-1 max-w-md text-sm text-muted-foreground">{message}</p>
+        <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+          {message}
+        </p>
       </div>
+      {action}
     </div>
   );
 }
@@ -75,26 +99,37 @@ function LoadingRows({ cols }: { cols: number }) {
   );
 }
 
-/** Shared shell that handles the not-connected / loading / error / empty states. */
-function DataTab<T>({
+/** Handles enabled / loading / error / empty and renders the table otherwise. */
+function DataTab({
+  enabled,
   loading,
   error,
-  rows,
+  count,
   cols,
+  onConnect,
+  onReload,
   children,
 }: {
+  enabled: boolean;
   loading: boolean;
   error: string | null;
-  rows: T[];
+  count: number;
   cols: number;
+  onConnect: () => void;
+  onReload: () => void;
   children: React.ReactNode;
 }) {
-  if (!IN_SF) {
+  if (!enabled) {
     return (
       <StateCard
         icon={Database}
-        title="Connect to Salesforce to see live data"
-        message="This tab queries your FreelanceOps objects with GraphQL. It fills in automatically when the app runs inside Salesforce as the FreelanceHub Lightning app."
+        title="Not connected to Salesforce"
+        message="This tab queries your FreelanceOps objects with GraphQL. It runs automatically inside the FreelanceHub Lightning app — or load it now to test the connection and see any error."
+        action={
+          <Button size="sm" onClick={onConnect}>
+            <Plug className="size-4" /> Load from Salesforce
+          </Button>
+        }
       />
     );
   }
@@ -106,27 +141,44 @@ function DataTab<T>({
         tone="danger"
         title="Couldn't load records"
         message={error}
+        action={
+          <Button size="sm" variant="outline" onClick={onReload}>
+            <RefreshCw className="size-4" /> Retry
+          </Button>
+        }
       />
     );
-  if (rows.length === 0)
+  if (count === 0)
     return (
       <StateCard
         icon={Inbox}
         title="No records yet"
-        message="Once you create records in Salesforce, they'll appear here in real time."
+        message="Connected, but this object has no records. Load the sample data (scripts/apex/fops-sample-data.apex) or create records in Salesforce — they'll appear here instantly."
+        action={
+          <Button size="sm" variant="outline" onClick={onReload}>
+            <RefreshCw className="size-4" /> Refresh
+          </Button>
+        }
       />
     );
-  return <div className="overflow-x-auto">{children}</div>;
+  return <Reveal className="overflow-x-auto">{children}</Reveal>;
 }
 
-function AccountsTab() {
-  const { data, loading, error } = useAsyncData<SfAccount[]>(
-    () => (IN_SF ? fetchAccounts() : Promise.resolve([])),
-    []
+function AccountsTab({ enabled, onConnect }: { enabled: boolean; onConnect: () => void }) {
+  const { rows, loading, error, reload } = useSfList<SfAccount>(
+    fetchAccounts,
+    enabled
   );
-  const rows = data ?? [];
   return (
-    <DataTab loading={loading} error={error} rows={rows} cols={4}>
+    <DataTab
+      enabled={enabled}
+      loading={loading}
+      error={error}
+      count={rows.length}
+      cols={4}
+      onConnect={onConnect}
+      onReload={reload}
+    >
       <Table>
         <TableHeader>
           <TableRow>
@@ -157,14 +209,21 @@ function AccountsTab() {
   );
 }
 
-function AssignmentsTab() {
-  const { data, loading, error } = useAsyncData<SfAssignment[]>(
-    () => (IN_SF ? fetchAssignments() : Promise.resolve([])),
-    []
+function AssignmentsTab({ enabled, onConnect }: { enabled: boolean; onConnect: () => void }) {
+  const { rows, loading, error, reload } = useSfList<SfAssignment>(
+    fetchAssignments,
+    enabled
   );
-  const rows = data ?? [];
   return (
-    <DataTab loading={loading} error={error} rows={rows} cols={5}>
+    <DataTab
+      enabled={enabled}
+      loading={loading}
+      error={error}
+      count={rows.length}
+      cols={5}
+      onConnect={onConnect}
+      onReload={reload}
+    >
       <Table>
         <TableHeader>
           <TableRow>
@@ -199,14 +258,21 @@ function AssignmentsTab() {
   );
 }
 
-function InvoicesTab() {
-  const { data, loading, error } = useAsyncData<SfInvoice[]>(
-    () => (IN_SF ? fetchInvoices() : Promise.resolve([])),
-    []
+function InvoicesTab({ enabled, onConnect }: { enabled: boolean; onConnect: () => void }) {
+  const { rows, loading, error, reload } = useSfList<SfInvoice>(
+    fetchInvoices,
+    enabled
   );
-  const rows = data ?? [];
   return (
-    <DataTab loading={loading} error={error} rows={rows} cols={5}>
+    <DataTab
+      enabled={enabled}
+      loading={loading}
+      error={error}
+      count={rows.length}
+      cols={5}
+      onConnect={onConnect}
+      onReload={reload}
+    >
       <Table>
         <TableHeader>
           <TableRow>
@@ -242,23 +308,37 @@ function InvoicesTab() {
 }
 
 export default function Salesforce() {
+  // Evaluate the environment at render time, not at module load.
+  const detected = useMemo(() => isSalesforceEnv(), []);
+  const [forced, setForced] = useState(false);
+  const enabled = detected || forced;
+
   return (
     <div>
       <PageHeader
         title="Salesforce Data"
         description="Live FreelanceOps records queried with the Salesforce GraphQL (uiapi) API."
+        actions={
+          !detected ? (
+            <Button variant="outline" size="sm" onClick={() => setForced(true)}>
+              <Plug className="size-4" /> Connect
+            </Button>
+          ) : undefined
+        }
       />
 
-      {!IN_SF && (
+      {!detected && (
         <Reveal>
           <Card className="mb-6 border-dashed">
             <CardContent className="flex items-start gap-3 py-4">
               <Database className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                You're viewing FreelanceHub outside Salesforce, so these tabs are
-                empty. Deployed as the <strong>FreelanceHub</strong> Lightning app,
-                they read your Accounts, Assignments, and Invoices in real time
-                through GraphQL — no page reloads.
+                Salesforce wasn't detected in this environment (you're likely
+                viewing FreelanceHub standalone). Inside the{' '}
+                <strong>FreelanceHub</strong> Lightning app this reads your
+                Accounts, Assignments, and Invoices live. Use{' '}
+                <strong>Connect</strong> to attempt the query anyway and surface
+                any error.
               </p>
             </CardContent>
           </Card>
@@ -275,13 +355,13 @@ export default function Salesforce() {
                 <TabsTrigger value="invoices">Invoices</TabsTrigger>
               </TabsList>
               <TabsContent value="accounts">
-                <AccountsTab />
+                <AccountsTab enabled={enabled} onConnect={() => setForced(true)} />
               </TabsContent>
               <TabsContent value="assignments">
-                <AssignmentsTab />
+                <AssignmentsTab enabled={enabled} onConnect={() => setForced(true)} />
               </TabsContent>
               <TabsContent value="invoices">
-                <InvoicesTab />
+                <InvoicesTab enabled={enabled} onConnect={() => setForced(true)} />
               </TabsContent>
             </Tabs>
           </CardContent>
