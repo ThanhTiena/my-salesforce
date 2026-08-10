@@ -1,28 +1,26 @@
-import { useMemo, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
-  ArrowRight,
-  BarChart3,
   CalendarDays,
   CheckCircle2,
   Clock,
   FolderKanban,
-  FolderOpen,
-  Receipt,
+  Inbox,
+  RefreshCw,
   Wallet,
-  type LucideIcon,
 } from 'lucide-react';
 
-import { useStore, useClientMap, useProjectMap } from '@/lib/store';
 import {
-  formatCurrency,
-  formatDate,
-  invoiceTotal,
-  effectiveInvoiceStatus,
-  monthKey,
-  todayISO,
-} from '@/lib/format';
+  fetchInvoices,
+  fetchAssignments,
+  fetchTimeEntries,
+  type SfInvoice,
+  type SfAssignment,
+  type SfTimeEntry,
+} from '@/data/salesforce';
+import { useAsyncData } from '@/hooks/useAsyncData';
+import { formatCurrency, formatDate } from '@/lib/format';
+import { LoadingTable, SfStateCard } from '@/data/live-view';
 import { PageHeader } from '@/components/common/page-header';
 import { StatCard } from '@/components/common/stat-card';
 import { Stagger } from '@/components/motion';
@@ -34,7 +32,6 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  CardFooter,
   Table,
   TableHeader,
   TableBody,
@@ -43,41 +40,55 @@ import {
   TableCell,
 } from '@/components/ui';
 
-/** Friendly placeholder shown wherever a region has no data yet. */
-function EmptyState({
-  icon: Icon,
-  title,
-  message,
-  action,
-}: {
-  icon: LucideIcon;
-  title: string;
-  message: string;
-  action?: ReactNode;
-}) {
+/** Statuses (lower-cased) that count an assignment as in-flight. */
+const ACTIVE_ASSIGNMENT_STATUSES = new Set([
+  'active',
+  'in progress',
+  'in-progress',
+  'ongoing',
+  'current',
+  'booked',
+  'open',
+]);
+
+function isActiveAssignment(status: string | null): boolean {
+  return ACTIVE_ASSIGNMENT_STATUSES.has((status ?? '').toLowerCase());
+}
+
+/** Balance still owed on an invoice (falls back to its total). */
+function invoiceOutstanding(inv: SfInvoice): number {
+  return inv.balanceDue ?? inv.total ?? 0;
+}
+
+/** Small inline placeholder shown when a single section's slice is empty. */
+function SectionEmpty({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-4 py-10 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Icon className="size-5" />
+    <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+      <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Inbox className="size-5" />
       </span>
-      <div>
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{message}</p>
-      </div>
-      {action}
+      <p className="text-xs text-muted-foreground">{children}</p>
     </div>
   );
 }
 
-const ACTIVE_PROJECT_STATUSES = new Set(['active', 'planning', 'on-hold']);
+type DashboardData = [SfInvoice[], SfAssignment[], SfTimeEntry[]];
 
 export default function Dashboard() {
-  const { data } = useStore();
-  const clientMap = useClientMap();
-  const projectMap = useProjectMap();
-  const currency = data.settings.currency;
+  // Reload via a generation counter fed into the fetcher's deps.
+  const [gen, setGen] = useState(0);
+  const reload = () => setGen(g => g + 1);
 
-  // --- KPI figures (all-time so the page is never blank) --------------------
+  const { data, loading, error } = useAsyncData<DashboardData>(
+    () => Promise.all([fetchInvoices(), fetchAssignments(), fetchTimeEntries()]),
+    [gen]
+  );
+
+  const invoices = useMemo(() => data?.[0] ?? [], [data]);
+  const assignments = useMemo(() => data?.[1] ?? [], [data]);
+  const timeEntries = useMemo(() => data?.[2] ?? [], [data]);
+
+  // --- KPI figures ----------------------------------------------------------
   const kpis = useMemo(() => {
     let outstanding = 0;
     let outstandingCount = 0;
@@ -86,34 +97,31 @@ export default function Dashboard() {
     let paid = 0;
     let paidCount = 0;
 
-    for (const inv of data.invoices) {
-      const status = effectiveInvoiceStatus(inv);
-      const total = invoiceTotal(inv);
-      if (status === 'sent' || status === 'overdue') {
-        outstanding += total;
+    for (const inv of invoices) {
+      const status = (inv.status ?? '').toLowerCase();
+      const owed = invoiceOutstanding(inv);
+      if (status === 'sent' || status === 'overdue' || (inv.balanceDue ?? 0) > 0) {
+        outstanding += owed;
         outstandingCount += 1;
       }
       if (status === 'overdue') {
-        overdue += total;
+        overdue += owed;
         overdueCount += 1;
       }
       if (status === 'paid') {
-        paid += total;
+        paid += inv.total ?? 0;
         paidCount += 1;
       }
     }
 
-    const activeProjects = data.projects.filter(
-      p => p.status === 'active'
+    const activeAssignments = assignments.filter(a =>
+      isActiveAssignment(a.status)
     ).length;
 
-    let unbilledValue = 0;
-    let unbilledHours = 0;
-    for (const entry of data.timeEntries) {
-      if (entry.billed) continue;
-      unbilledHours += entry.hours;
-      unbilledValue += entry.hours * (projectMap.get(entry.projectId)?.hourlyRate ?? 0);
-    }
+    const hoursLogged = timeEntries.reduce(
+      (sum, entry) => sum + (entry.hours ?? 0),
+      0
+    );
 
     return {
       outstanding,
@@ -122,12 +130,11 @@ export default function Dashboard() {
       overdueCount,
       paid,
       paidCount,
-      activeProjects,
-      totalProjects: data.projects.length,
-      unbilledValue,
-      unbilledHours,
+      activeAssignments,
+      totalAssignments: assignments.length,
+      hoursLogged,
     };
-  }, [data.invoices, data.projects, data.timeEntries, projectMap]);
+  }, [invoices, assignments, timeEntries]);
 
   // --- Income for the last 6 months (paid invoices by issue month) ----------
   const income = useMemo(() => {
@@ -138,11 +145,11 @@ export default function Dashboard() {
       keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     }
     const totals = new Map<string, number>(keys.map(k => [k, 0]));
-    for (const inv of data.invoices) {
-      if (inv.status !== 'paid') continue;
-      const key = monthKey(inv.issueDate);
+    for (const inv of invoices) {
+      if ((inv.status ?? '').toLowerCase() !== 'paid') continue;
+      const key = (inv.issueDate ?? '').slice(0, 7);
       if (totals.has(key)) {
-        totals.set(key, (totals.get(key) ?? 0) + invoiceTotal(inv));
+        totals.set(key, (totals.get(key) ?? 0) + (inv.total ?? 0));
       }
     }
     const bars = keys.map(key => {
@@ -156,54 +163,101 @@ export default function Dashboard() {
     const max = Math.max(0, ...bars.map(b => b.value));
     const total = bars.reduce((sum, b) => sum + b.value, 0);
     return { bars, max, total };
-  }, [data.invoices]);
+  }, [invoices]);
 
-  // --- Recent invoices (newest first) ---------------------------------------
+  // --- Recent invoices (newest first by issue date) -------------------------
   const recentInvoices = useMemo(
     () =>
-      [...data.invoices]
-        .sort((a, b) => b.issueDate.localeCompare(a.issueDate))
+      [...invoices]
+        .sort((a, b) => (b.issueDate ?? '').localeCompare(a.issueDate ?? ''))
         .slice(0, 5),
-    [data.invoices]
+    [invoices]
   );
 
-  // --- Active/upcoming projects with tracked hours --------------------------
-  const activeProjectRows = useMemo(() => {
-    const hoursByProject = new Map<string, number>();
-    for (const entry of data.timeEntries) {
-      hoursByProject.set(
-        entry.projectId,
-        (hoursByProject.get(entry.projectId) ?? 0) + entry.hours
-      );
-    }
-    return data.projects
-      .filter(p => ACTIVE_PROJECT_STATUSES.has(p.status))
-      .sort((a, b) => {
-        const ad = a.dueDate ?? '';
-        const bd = b.dueDate ?? '';
-        if (!ad && !bd) return 0;
-        if (!ad) return 1;
-        if (!bd) return -1;
-        return ad.localeCompare(bd);
-      })
-      .map(p => {
-        const hours = hoursByProject.get(p.id) ?? 0;
-        return { project: p, hours, value: hours * (p.hourlyRate ?? 0) };
-      });
-  }, [data.projects, data.timeEntries]);
+  // --- Active assignments ---------------------------------------------------
+  const activeAssignmentRows = useMemo(
+    () => assignments.filter(a => isActiveAssignment(a.status)),
+    [assignments]
+  );
+
+  const header = (
+    <PageHeader
+      title="Dashboard"
+      description="Your freelance business at a glance."
+      actions={
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground">
+          <CalendarDays className="size-4" />
+          <span className="tabular-nums">{formatDate(new Date().toISOString())}</span>
+        </div>
+      }
+    />
+  );
+
+  // --- Loading --------------------------------------------------------------
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {header}
+        <Card className="mt-6">
+          <CardContent className="px-0">
+            <LoadingTable cols={4} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // --- Error (verbatim message + Retry) -------------------------------------
+  if (error) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {header}
+        <Card className="mt-6">
+          <SfStateCard
+            icon={AlertTriangle}
+            tone="danger"
+            title="Couldn't load records"
+            message={error}
+            action={
+              <Button size="sm" variant="outline" onClick={reload}>
+                <RefreshCw className="size-4" /> Retry
+              </Button>
+            }
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  // --- All three slices empty -> "No data" ----------------------------------
+  const allEmpty =
+    invoices.length === 0 &&
+    assignments.length === 0 &&
+    timeEntries.length === 0;
+
+  if (allEmpty) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {header}
+        <Card className="mt-6">
+          <SfStateCard
+            icon={Inbox}
+            title="No data"
+            message="No records in Salesforce yet."
+            action={
+              <Button size="sm" variant="outline" onClick={reload}>
+                <RefreshCw className="size-4" /> Refresh
+              </Button>
+            }
+          />
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <PageHeader
-        title="Dashboard"
-        description="Your freelance business at a glance."
-        actions={
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground">
-            <CalendarDays className="size-4" />
-            <span className="tabular-nums">{formatDate(todayISO())}</span>
-          </div>
-        }
-      />
+      {header}
 
       {/* KPI row */}
       <Stagger
@@ -212,9 +266,9 @@ export default function Dashboard() {
       >
         <StatCard
           label="Outstanding"
-          value={formatCurrency(kpis.outstanding, currency)}
+          value={formatCurrency(kpis.outstanding)}
           numericValue={kpis.outstanding}
-          format={v => formatCurrency(v, currency)}
+          format={v => formatCurrency(v)}
           hint={`${kpis.outstandingCount} open invoice${kpis.outstandingCount === 1 ? '' : 's'}`}
           icon={Wallet}
           accent="text-amber-600"
@@ -222,9 +276,9 @@ export default function Dashboard() {
         />
         <StatCard
           label="Overdue"
-          value={formatCurrency(kpis.overdue, currency)}
+          value={formatCurrency(kpis.overdue)}
           numericValue={kpis.overdue}
-          format={v => formatCurrency(v, currency)}
+          format={v => formatCurrency(v)}
           hint={`${kpis.overdueCount} past due`}
           icon={AlertTriangle}
           accent={kpis.overdue > 0 ? 'text-rose-600' : 'text-emerald-600'}
@@ -236,28 +290,28 @@ export default function Dashboard() {
         />
         <StatCard
           label="Paid (all time)"
-          value={formatCurrency(kpis.paid, currency)}
+          value={formatCurrency(kpis.paid)}
           numericValue={kpis.paid}
-          format={v => formatCurrency(v, currency)}
+          format={v => formatCurrency(v)}
           hint={`${kpis.paidCount} invoice${kpis.paidCount === 1 ? '' : 's'}`}
           icon={CheckCircle2}
           accent="text-emerald-600"
           iconClassName="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
         />
         <StatCard
-          label="Active projects"
-          value={String(kpis.activeProjects)}
-          numericValue={kpis.activeProjects}
-          hint={`of ${kpis.totalProjects} total`}
+          label="Active assignments"
+          value={String(kpis.activeAssignments)}
+          numericValue={kpis.activeAssignments}
+          hint={`of ${kpis.totalAssignments} total`}
           icon={FolderKanban}
           iconClassName="bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
         />
         <StatCard
-          label="Unbilled"
-          value={formatCurrency(kpis.unbilledValue, currency)}
-          numericValue={kpis.unbilledValue}
-          format={v => formatCurrency(v, currency)}
-          hint={`${kpis.unbilledHours.toLocaleString('en-US')} hrs to bill`}
+          label="Hours logged"
+          value={kpis.hoursLogged.toLocaleString('en-US')}
+          numericValue={kpis.hoursLogged}
+          format={v => `${Math.round(v).toLocaleString('en-US')} hrs`}
+          hint={`${timeEntries.length} time entr${timeEntries.length === 1 ? 'y' : 'ies'}`}
           icon={Clock}
           accent="text-sky-600"
           iconClassName="bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
@@ -272,7 +326,7 @@ export default function Dashboard() {
             <CardDescription>
               Paid invoices ·{' '}
               <span className="tabular-nums font-medium text-foreground">
-                {formatCurrency(income.total, currency)}
+                {formatCurrency(income.total)}
               </span>{' '}
               collected
             </CardDescription>
@@ -290,7 +344,7 @@ export default function Dashboard() {
                       <div
                         key={bar.key}
                         className="flex h-full flex-1 flex-col justify-end"
-                        title={`${bar.label}: ${formatCurrency(bar.value, currency)}`}
+                        title={`${bar.label}: ${formatCurrency(bar.value)}`}
                       >
                         <div
                           className="w-full rounded-t-md bg-primary transition-[height] duration-300 ease-out hover:bg-primary/90"
@@ -312,18 +366,9 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <EmptyState
-                icon={BarChart3}
-                title="No income yet"
-                message="Paid invoices from the last six months will appear here."
-                action={
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/invoices">
-                      Record a payment <ArrowRight className="size-3.5" />
-                    </Link>
-                  </Button>
-                }
-              />
+              <SectionEmpty>
+                No paid invoices in the last six months.
+              </SectionEmpty>
             )}
           </CardContent>
         </Card>
@@ -333,102 +378,78 @@ export default function Dashboard() {
             <CardTitle>Recent invoices</CardTitle>
             <CardDescription>Your latest activity</CardDescription>
           </CardHeader>
-          {recentInvoices.length > 0 ? (
-            <>
-              <CardContent className="px-0">
-                <ul className="divide-y divide-border">
-                  {recentInvoices.map(inv => {
-                    const clientName =
-                      clientMap.get(inv.clientId)?.name ?? 'Unknown';
-                    return (
-                      <li
-                        key={inv.id}
-                        className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">
-                            {inv.number}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {clientName} · {formatDate(inv.issueDate)}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-3">
-                          <span className="text-sm font-medium tabular-nums text-foreground">
-                            {formatCurrency(invoiceTotal(inv), currency)}
-                          </span>
-                          <StatusBadge status={effectiveInvoiceStatus(inv)} />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </CardContent>
-              <CardFooter className="justify-center">
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/invoices">
-                    View all <ArrowRight className="size-3.5" />
-                  </Link>
-                </Button>
-              </CardFooter>
-            </>
-          ) : (
-            <CardContent>
-              <EmptyState
-                icon={Receipt}
-                title="No invoices yet"
-                message="Create your first invoice to start tracking income."
-                action={
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/invoices">
-                      Create an invoice <ArrowRight className="size-3.5" />
-                    </Link>
-                  </Button>
-                }
-              />
-            </CardContent>
-          )}
+          <CardContent className="px-0">
+            {recentInvoices.length > 0 ? (
+              <ul className="divide-y divide-border">
+                {recentInvoices.map(inv => (
+                  <li
+                    key={inv.id}
+                    className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {inv.number ?? 'Untitled'}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {inv.account ?? 'Unknown'} · {formatDate(inv.issueDate ?? undefined)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="text-sm font-medium tabular-nums text-foreground">
+                        {formatCurrency(inv.total ?? 0)}
+                      </span>
+                      <StatusBadge status={(inv.status ?? 'unknown').toLowerCase()} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <SectionEmpty>No invoices in Salesforce yet.</SectionEmpty>
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      {/* Active projects table */}
+      {/* Active assignments table */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Active &amp; upcoming projects</CardTitle>
+          <CardTitle>Active assignments</CardTitle>
           <CardDescription>
-            In-flight work (active, planning, and on-hold) sorted by due date.
+            In-flight assignments with consultant, end client, and weekly hours.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">
-          {activeProjectRows.length > 0 ? (
+          {activeAssignmentRows.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4">Project</TableHead>
-                    <TableHead>Client</TableHead>
+                    <TableHead className="pl-4">Assignment</TableHead>
+                    <TableHead>Consultant</TableHead>
+                    <TableHead>End client</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Tracked hrs</TableHead>
-                    <TableHead className="pr-4 text-right">Value</TableHead>
+                    <TableHead className="pr-4 text-right">Hrs / wk</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {activeProjectRows.map(({ project, hours, value }) => (
-                    <TableRow key={project.id}>
+                  {activeAssignmentRows.map(a => (
+                    <TableRow key={a.id}>
                       <TableCell className="pl-4 font-medium text-foreground">
-                        {project.name}
+                        {a.name}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {clientMap.get(project.clientId)?.name ?? 'Unknown'}
+                        {a.consultant ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {a.endClient ?? '—'}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={project.status} />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {hours.toLocaleString('en-US')}
+                        <StatusBadge status={(a.status ?? 'unknown').toLowerCase()} />
                       </TableCell>
                       <TableCell className="pr-4 text-right tabular-nums">
-                        {formatCurrency(value, currency)}
+                        {a.hoursPerWeek != null
+                          ? a.hoursPerWeek.toLocaleString('en-US')
+                          : '—'}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -436,18 +457,13 @@ export default function Dashboard() {
               </Table>
             </div>
           ) : (
-            <EmptyState
-              icon={FolderOpen}
-              title="No active projects"
-              message="Spin up a project to plan work and track billable time."
-              action={
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/projects">
-                    Add a project <ArrowRight className="size-3.5" />
-                  </Link>
-                </Button>
-              }
-            />
+            <div className="px-4 pb-2">
+              <SectionEmpty>
+                {assignments.length > 0
+                  ? 'No active assignments right now.'
+                  : 'No assignments in Salesforce yet.'}
+              </SectionEmpty>
+            </div>
           )}
         </CardContent>
       </Card>
