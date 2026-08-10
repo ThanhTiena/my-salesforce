@@ -14,11 +14,31 @@
 export { executeGraphQL } from '@/api/graphqlClient';
 
 /**
- * True when the app is running inside Salesforce (the platform injects
- * `SFDC_ENV`). Outside Salesforce — local `vite dev`, tests, a static preview —
- * this is false and the app falls back to the local data source, so the UI
- * always renders without a live org.
+ * True when the app is running inside Salesforce. Detected from several
+ * signals so it's robust across runtimes:
+ *   1. the platform-injected `SFDC_ENV` global, or
+ *   2. a Salesforce host (`*.force.com` / `*.salesforce.com`), or
+ *   3. an LWR bundle path (`/lwr/`).
+ * Outside Salesforce — local `vite dev`, tests, a static preview — all three
+ * are false and the app falls back to the local data source, so the UI always
+ * renders without a live org. Users can still force a live query with the
+ * "Connect" button, which surfaces any GraphQL error verbatim.
  */
 export function isSalesforceEnv(): boolean {
-  return typeof (globalThis as { SFDC_ENV?: unknown }).SFDC_ENV !== 'undefined';
+  if (typeof (globalThis as { SFDC_ENV?: unknown }).SFDC_ENV !== 'undefined') {
+    return true;
+  }
+  try {
+    const loc = (globalThis as { location?: { hostname?: string; pathname?: string } })
+      .location;
+    const host = loc?.hostname ?? '';
+    const path = loc?.pathname ?? '';
+    return (
+      host.includes('force.com') ||
+      host.includes('salesforce.com') ||
+      path.includes('/lwr/')
+    );
+  } catch {
+    return false;
+  }
 }
