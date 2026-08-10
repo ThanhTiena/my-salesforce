@@ -121,9 +121,23 @@ sf project deploy start -o fops-dev \
 These must be done by hand in **Setup** after the metadata deploys. Nothing in
 the app behaves correctly until steps 1 and 2 are complete.
 
-### 4.1 Assign record types to layouts and profiles
-The 13 record types (Account ×3, Contact ×2, Product2 ×1, Event ×4, Case ×3)
-must be enabled on the relevant profiles and mapped to page layouts.
+### 4.1 Assign record types to profiles and layouts
+The 13 record types are now **source-controlled** and deploy with the package
+(`objects/<Object>/recordTypes/`):
+
+- Account ×3 — Direct Client, Recruiting Agency, End Client
+- Contact ×2 — Client Contact, Consultant
+- Product2 ×1 — Skill
+- Event ×4 — Recruiter Screen, HR, Technical, Client/Final
+- Case ×3 — Engagement Issue, Invoice Dispute, Recruiter Correspondence
+  (backed by the `FOPS_Case_Process` business process, also in source)
+
+The record types deploy against the **default page layout**. Two Setup steps
+remain (they cannot be reliably deployed without also managing full Profile and
+Layout metadata): grant each record type to the relevant **profiles /
+permission sets** (System Administrator sees them automatically), and, if you
+want the `FOPS_*` fields to appear on screen, add them to the page layouts (or
+deploy custom Layouts — ask if you want those generated).
 
 ### 4.2 Create the 11 Opportunity stages, then deactivate the 10 stock stages
 Opportunity stages cannot be inserted as records or reliably deployed — create
