@@ -6,10 +6,14 @@ import {
   CircleDollarSign,
   CheckCircle2,
   CalendarDays,
+  Play,
+  Square,
 } from 'lucide-react';
 import { useStore, useProjectMap, useClientMap } from '@/lib/store';
 import type { TimeEntry } from '@/lib/types';
 import { formatCurrency, formatDate, todayISO } from '@/lib/format';
+import { parseDuration, formatDuration, formatClock } from '@/lib/duration';
+import { useTimer } from '@/hooks/useTimer';
 import { PageHeader } from '@/components/page-header';
 import { StatCard } from '@/components/stat-card';
 import {
@@ -114,23 +118,23 @@ export default function TimeTracking() {
     return { hours: h, value: v };
   }, [rows, projectMap]);
 
-  function openCreate() {
+  function openCreate(prefillHours?: string) {
     setProjectId(projects[0]?.id ?? '');
     setDate(todayISO());
-    setHours('');
+    setHours(prefillHours ?? '');
     setDescription('');
     setBilled(false);
     setOpen(true);
   }
 
   function handleSave() {
-    const h = Number(hours);
     if (!projectId) {
       toast.error('Pick a project first.');
       return;
     }
-    if (!Number.isFinite(h) || h <= 0) {
-      toast.error('Enter a number of hours greater than zero.');
+    const h = parseDuration(hours);
+    if (h == null) {
+      toast.error('Enter a valid duration, e.g. 1.5, 1:30, 1h30, or 90m.');
       return;
     }
     addTimeEntry({
@@ -140,8 +144,16 @@ export default function TimeTracking() {
       description: description.trim() || undefined,
       billed,
     });
-    toast.success('Time logged.');
+    toast.success(`Logged ${formatDuration(h)}.`);
     setOpen(false);
+  }
+
+  // Live, reload-proof stopwatch. Stopping it opens the dialog prefilled with
+  // the elapsed duration so the user just confirms project + notes.
+  const timer = useTimer();
+  function stopTimerAndLog() {
+    const elapsed = timer.stop();
+    openCreate(elapsed > 0 ? formatDuration(elapsed) : '');
   }
 
   function toggleBilled(e: TimeEntry) {
@@ -163,10 +175,34 @@ export default function TimeTracking() {
         title="Time Tracking"
         description="Log billable hours against your projects."
         actions={
-          <Button onClick={openCreate} className="cursor-pointer">
-            <Plus />
-            Log time
-          </Button>
+          <div className="flex items-center gap-2">
+            {timer.running ? (
+              <Button
+                variant="destructive"
+                onClick={stopTimerAndLog}
+                className="cursor-pointer"
+              >
+                <Square className="fill-current" />
+                <span className="tabular-nums">
+                  {formatClock(timer.elapsedMs)}
+                </span>
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={timer.start}
+                className="cursor-pointer"
+                aria-label="Start timer"
+              >
+                <Play />
+                Start timer
+              </Button>
+            )}
+            <Button onClick={() => openCreate()} className="cursor-pointer">
+              <Plus />
+              Log time
+            </Button>
+          </div>
         }
       />
 
@@ -239,7 +275,7 @@ export default function TimeTracking() {
               </div>
               <Button
                 variant="outline"
-                onClick={openCreate}
+                onClick={() => openCreate()}
                 className="cursor-pointer"
               >
                 <Plus />
@@ -389,17 +425,21 @@ export default function TimeTracking() {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="entry-hours">Hours</Label>
+                <Label htmlFor="entry-hours">Duration</Label>
                 <Input
                   id="entry-hours"
-                  type="number"
-                  min="0"
-                  step="0.25"
-                  placeholder="0.0"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="1.5, 1:30, 1h30, 90m…"
                   value={hours}
                   onChange={ev => setHours(ev.target.value)}
                   className="tabular-nums"
                 />
+                {parseDuration(hours) != null && (
+                  <p className="text-xs text-muted-foreground">
+                    = {formatDuration(parseDuration(hours) as number)}
+                  </p>
+                )}
               </div>
             </div>
 
