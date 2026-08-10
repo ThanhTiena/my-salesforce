@@ -16,7 +16,7 @@
   "name": "my-salesforce",
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "66.0",
+  "sourceApiVersion": "67.0",
   "packageAliases": {
     "MongoDB-Salesforce-Connect": "0HoDn000000kAOrKAM",
     "MongoDB-Salesforce-Connect@0.1.0-1": "04tDn00000070WSIAY",
