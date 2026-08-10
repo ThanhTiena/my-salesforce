@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/common/page-header';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import { Reveal } from '@/components/motion';
 import {
@@ -11,7 +11,7 @@ import {
   type SfAssignment,
   type SfInvoice,
 } from '@/data/salesforce';
-import { StatusBadge } from '@/components/status-badge';
+import { StatusBadge } from '@/components/common/status-badge';
 import { formatCurrency, formatDate } from '@/lib/format';
 import {
   Button,

@@ -22,8 +22,8 @@ import {
   type SfAssignment,
 } from '@/data';
 import { LiveBadge, LiveStates } from '@/data/live-view';
-import { PageHeader } from '@/components/page-header';
-import { StatusBadge } from '@/components/status-badge';
+import { PageHeader } from '@/components/common/page-header';
+import { StatusBadge } from '@/components/common/status-badge';
 import {
   Button,
   Input,

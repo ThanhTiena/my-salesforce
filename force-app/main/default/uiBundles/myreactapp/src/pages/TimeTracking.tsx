@@ -14,8 +14,8 @@ import type { TimeEntry } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { formatDuration, formatClock } from '@/lib/duration';
 import { useTimer } from '@/hooks/useTimer';
-import { PageHeader } from '@/components/page-header';
-import { StatCard } from '@/components/stat-card';
+import { PageHeader } from '@/components/common/page-header';
+import { StatCard } from '@/components/common/stat-card';
 import {
   Button,
   Label,

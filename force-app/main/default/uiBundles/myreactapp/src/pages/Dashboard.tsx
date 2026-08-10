@@ -23,10 +23,10 @@ import {
   monthKey,
   todayISO,
 } from '@/lib/format';
-import { PageHeader } from '@/components/page-header';
-import { StatCard } from '@/components/stat-card';
+import { PageHeader } from '@/components/common/page-header';
+import { StatCard } from '@/components/common/stat-card';
 import { Stagger } from '@/components/motion';
-import { StatusBadge } from '@/components/status-badge';
+import { StatusBadge } from '@/components/common/status-badge';
 import {
   Button,
   Card,
