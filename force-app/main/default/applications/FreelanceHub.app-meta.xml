@@ -13,6 +13,6 @@
     <isOmniPinnedViewEnabled>false</isOmniPinnedViewEnabled>
     <label>FreelanceHub</label>
     <navType>Standard</navType>
-    <uiBundle>c__myReactApp</uiBundle>
+    <uiBundle>c__myreactapp</uiBundle>
     <uiType>Lightning</uiType>
 </CustomApplication>
