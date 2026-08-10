@@ -5,6 +5,7 @@ import Clients from './pages/Clients';
 import Projects from './pages/Projects';
 import Invoices from './pages/Invoices';
 import TimeTracking from './pages/TimeTracking';
+import Salesforce from './pages/Salesforce';
 import NotFound from './pages/NotFound';
 
 export const routes: RouteObject[] = [
@@ -36,6 +37,11 @@ export const routes: RouteObject[] = [
         path: 'time',
         element: <TimeTracking />,
         handle: { showInNavigation: true, label: 'Time Tracking' },
+      },
+      {
+        path: 'salesforce',
+        element: <Salesforce />,
+        handle: { showInNavigation: true, label: 'Salesforce Data' },
       },
       {
         path: '*',

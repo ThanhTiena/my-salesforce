@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { AnimatedNumber } from '@/components/motion';
 
 /**
  * A KPI tile: label, large value, an icon chip, and an optional hint line.
@@ -13,6 +14,8 @@ export function StatCard({
   icon: Icon,
   accent = 'text-foreground',
   iconClassName = 'bg-muted text-foreground',
+  numericValue,
+  format,
 }: {
   label: string;
   value: string;
@@ -20,6 +23,9 @@ export function StatCard({
   icon?: LucideIcon;
   accent?: string;
   iconClassName?: string;
+  /** When set, the value counts up on mount using `format` to render it. */
+  numericValue?: number;
+  format?: (v: number) => string;
 }) {
   return (
     <Card className="gap-0 py-4">
@@ -30,7 +36,14 @@ export function StatCard({
               {label}
             </p>
             <p className={cn('mt-1.5 text-2xl font-semibold truncate', accent)}>
-              {value}
+              {numericValue != null ? (
+                <AnimatedNumber
+                  value={numericValue}
+                  format={format ?? (v => String(Math.round(v)))}
+                />
+              ) : (
+                value
+              )}
             </p>
             {hint && (
               <p className="mt-1 text-xs text-muted-foreground">{hint}</p>

@@ -1,4 +1,4 @@
-import { Outlet, NavLink, Link } from 'react-router';
+import { Outlet, NavLink, Link, useLocation } from 'react-router';
 import { useState } from 'react';
 import {
   LayoutDashboard,
@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   Briefcase,
+  Database,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/lib/store';
@@ -26,6 +27,7 @@ const NAV: NavItem[] = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/invoices', label: 'Invoices', icon: FileText },
   { to: '/time', label: 'Time Tracking', icon: Clock },
+  { to: '/salesforce', label: 'Salesforce Data', icon: Database },
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -39,6 +41,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             to={item.to}
             end={item.end}
             onClick={onNavigate}
+            data-nav-item
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
@@ -73,6 +76,7 @@ function Brand() {
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -122,7 +126,10 @@ export default function AppLayout() {
 
       {/* Content */}
       <main className="md:pl-60">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        <div
+          key={location.pathname}
+          className="fops-page mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8"
+        >
           <Outlet />
         </div>
       </main>

@@ -25,6 +25,7 @@ import {
 } from '@/lib/format';
 import { PageHeader } from '@/components/page-header';
 import { StatCard } from '@/components/stat-card';
+import { Stagger } from '@/components/motion';
 import { StatusBadge } from '@/components/status-badge';
 import {
   Button,
@@ -205,10 +206,15 @@ export default function Dashboard() {
       />
 
       {/* KPI row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <Stagger
+        step={70}
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
+      >
         <StatCard
           label="Outstanding"
           value={formatCurrency(kpis.outstanding, currency)}
+          numericValue={kpis.outstanding}
+          format={v => formatCurrency(v, currency)}
           hint={`${kpis.outstandingCount} open invoice${kpis.outstandingCount === 1 ? '' : 's'}`}
           icon={Wallet}
           accent="text-amber-600"
@@ -217,6 +223,8 @@ export default function Dashboard() {
         <StatCard
           label="Overdue"
           value={formatCurrency(kpis.overdue, currency)}
+          numericValue={kpis.overdue}
+          format={v => formatCurrency(v, currency)}
           hint={`${kpis.overdueCount} past due`}
           icon={AlertTriangle}
           accent={kpis.overdue > 0 ? 'text-rose-600' : 'text-emerald-600'}
@@ -229,6 +237,8 @@ export default function Dashboard() {
         <StatCard
           label="Paid (all time)"
           value={formatCurrency(kpis.paid, currency)}
+          numericValue={kpis.paid}
+          format={v => formatCurrency(v, currency)}
           hint={`${kpis.paidCount} invoice${kpis.paidCount === 1 ? '' : 's'}`}
           icon={CheckCircle2}
           accent="text-emerald-600"
@@ -237,6 +247,7 @@ export default function Dashboard() {
         <StatCard
           label="Active projects"
           value={String(kpis.activeProjects)}
+          numericValue={kpis.activeProjects}
           hint={`of ${kpis.totalProjects} total`}
           icon={FolderKanban}
           iconClassName="bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
@@ -244,12 +255,14 @@ export default function Dashboard() {
         <StatCard
           label="Unbilled"
           value={formatCurrency(kpis.unbilledValue, currency)}
+          numericValue={kpis.unbilledValue}
+          format={v => formatCurrency(v, currency)}
           hint={`${kpis.unbilledHours.toLocaleString('en-US')} hrs to bill`}
           icon={Clock}
           accent="text-sky-600"
           iconClassName="bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
         />
-      </div>
+      </Stagger>
 
       {/* Bento: income chart + recent invoices */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
