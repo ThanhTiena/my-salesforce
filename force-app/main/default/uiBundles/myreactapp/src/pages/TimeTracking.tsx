@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Plus,
   Trash2,
@@ -11,14 +11,13 @@ import {
 } from 'lucide-react';
 import { useStore, useProjectMap, useClientMap } from '@/lib/store';
 import type { TimeEntry } from '@/lib/types';
-import { formatCurrency, formatDate, todayISO } from '@/lib/format';
-import { parseDuration, formatDuration, formatClock } from '@/lib/duration';
+import { formatCurrency, formatDate } from '@/lib/format';
+import { formatDuration, formatClock } from '@/lib/duration';
 import { useTimer } from '@/hooks/useTimer';
 import { PageHeader } from '@/components/page-header';
 import { StatCard } from '@/components/stat-card';
 import {
   Button,
-  Input,
   Label,
   Card,
   CardHeader,
@@ -30,13 +29,6 @@ import {
   TableRow,
   TableHead,
   TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
   Select,
   SelectTrigger,
   SelectValue,
@@ -46,6 +38,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
+import { LogTimeDialog } from '@/features/timelog/LogTimeDialog';
+import { useLogTimeForm } from '@/features/timelog/useLogTimeForm';
 
 /** Billable value of one entry: hours × the project's hourly rate. */
 function entryValue(hours: number, rate: number | undefined): number {
@@ -61,13 +55,9 @@ export default function TimeTracking() {
 
   const [filterProject, setFilterProject] = useState<string>('all');
 
-  // Create dialog + form state.
+  // Create dialog + shared, multi-mode form state (Manual / Timer / Range).
   const [open, setOpen] = useState(false);
-  const [projectId, setProjectId] = useState('');
-  const [date, setDate] = useState(todayISO());
-  const [hours, setHours] = useState('');
-  const [description, setDescription] = useState('');
-  const [billed, setBilled] = useState(false);
+  const form = useLogTimeForm();
 
   const kpis = useMemo(() => {
     // Local YYYY-MM so it matches how entry dates (local calendar days) render.
@@ -118,42 +108,31 @@ export default function TimeTracking() {
     return { hours: h, value: v };
   }, [rows, projectMap]);
 
-  function openCreate(prefillHours?: string) {
-    setProjectId(projects[0]?.id ?? '');
-    setDate(todayISO());
-    setHours(prefillHours ?? '');
-    setDescription('');
-    setBilled(false);
+  // The Assignment-anchored pattern, adapted to the local model: the project is
+  // the anchor, and its client name renders as read-only context in the dialog.
+  const clientNameFor = useCallback(
+    (projectId: string): string | undefined => {
+      const project = projectMap.get(projectId);
+      return project ? clientMap.get(project.clientId)?.name : undefined;
+    },
+    [projectMap, clientMap]
+  );
+
+  function openCreate() {
+    form.reset({ projectId: projects[0]?.id ?? '' });
     setOpen(true);
   }
 
-  function handleSave() {
-    if (!projectId) {
-      toast.error('Pick a project first.');
-      return;
-    }
-    const h = parseDuration(hours);
-    if (h == null) {
-      toast.error('Enter a valid duration, e.g. 1.5, 1:30, 1h30, or 90m.');
-      return;
-    }
-    addTimeEntry({
-      projectId,
-      date: date || todayISO(),
-      hours: h,
-      description: description.trim() || undefined,
-      billed,
-    });
-    toast.success(`Logged ${formatDuration(h)}.`);
-    setOpen(false);
-  }
-
-  // Live, reload-proof stopwatch. Stopping it opens the dialog prefilled with
-  // the elapsed duration so the user just confirms project + notes.
+  // Live, reload-proof stopwatch shared with the dialog's Timer tab, so a timer
+  // started here in the header is reflected inside the dialog and vice-versa.
   const timer = useTimer();
   function stopTimerAndLog() {
     const elapsed = timer.stop();
-    openCreate(elapsed > 0 ? formatDuration(elapsed) : '');
+    form.reset({
+      projectId: projects[0]?.id ?? '',
+      durationText: elapsed > 0 ? formatDuration(elapsed) : '',
+    });
+    setOpen(true);
   }
 
   function toggleBilled(e: TimeEntry) {
@@ -166,8 +145,6 @@ export default function TimeTracking() {
     deleteTimeEntry(e.id);
     toast.success('Time entry deleted.');
   }
-
-  const hasProjects = projects.length > 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -198,7 +175,7 @@ export default function TimeTracking() {
                 Start timer
               </Button>
             )}
-            <Button onClick={() => openCreate()} className="cursor-pointer">
+            <Button onClick={openCreate} className="cursor-pointer">
               <Plus />
               Log time
             </Button>
@@ -275,7 +252,7 @@ export default function TimeTracking() {
               </div>
               <Button
                 variant="outline"
-                onClick={() => openCreate()}
+                onClick={openCreate}
                 className="cursor-pointer"
               >
                 <Plus />
@@ -382,104 +359,15 @@ export default function TimeTracking() {
         </CardContent>
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Log time</DialogTitle>
-            <DialogDescription>
-              Record billable hours against a project.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="entry-project">Project</Label>
-              {hasProjects ? (
-                <Select value={projectId} onValueChange={setProjectId}>
-                  <SelectTrigger id="entry-project" className="w-full">
-                    <SelectValue placeholder="Select a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Create a project first to log time against it.
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-1.5">
-                <Label htmlFor="entry-date">Date</Label>
-                <Input
-                  id="entry-date"
-                  type="date"
-                  value={date}
-                  onChange={ev => setDate(ev.target.value)}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="entry-hours">Duration</Label>
-                <Input
-                  id="entry-hours"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="1.5, 1:30, 1h30, 90m…"
-                  value={hours}
-                  onChange={ev => setHours(ev.target.value)}
-                  className="tabular-nums"
-                />
-                {parseDuration(hours) != null && (
-                  <p className="text-xs text-muted-foreground">
-                    = {formatDuration(parseDuration(hours) as number)}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="entry-desc">Description</Label>
-              <Input
-                id="entry-desc"
-                placeholder="What did you work on?"
-                value={description}
-                onChange={ev => setDescription(ev.target.value)}
-              />
-            </div>
-
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={billed}
-                onChange={ev => setBilled(ev.target.checked)}
-                className="size-4 cursor-pointer rounded border-input accent-primary"
-              />
-              Already billed
-            </label>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" className="cursor-pointer">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button
-              onClick={handleSave}
-              disabled={!hasProjects}
-              className="cursor-pointer"
-            >
-              Save entry
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <LogTimeDialog
+        open={open}
+        onOpenChange={setOpen}
+        projects={projects}
+        clientNameFor={clientNameFor}
+        timer={timer}
+        form={form}
+        onCreate={addTimeEntry}
+      />
     </div>
   );
 }
