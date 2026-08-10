@@ -238,6 +238,7 @@ feature or target** problem, not missing metadata. Check these in order:
 | `must specify either cascade delete or restrict delete for required lookup foreign key` | A **required** lookup used `SetNull` | Required lookups use `<deleteConstraint>Restrict</deleteConstraint>` (or `Cascade`). `SetNull` is only valid for optional lookups. |
 | `Invalid summary filter: Use "True" or "False"` | A roll-up filter on a checkbox used `1`/`0` | Use `<value>True</value>` / `<value>False</value>`. |
 | `<object> does not have history tracking enabled` | A field sets `trackHistory` but the object's history is off | Set `<enableHistory>true</enableHistory>` on the object (already done for Opportunity), or remove `trackHistory` from the field. |
+| `Element fieldPermissions is duplicated at this location` on a PermissionSet | New `<fieldPermissions>` were appended after another element type, splitting the group | Keep every `<fieldPermissions>` block **contiguous** (Salesforce requires same-type elements grouped together). |
 
 Validate without deploying first — it reports the exact blocking component:
 

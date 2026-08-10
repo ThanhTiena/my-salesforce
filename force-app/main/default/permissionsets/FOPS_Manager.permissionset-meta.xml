@@ -107,10 +107,6 @@
         <field>Contact.FOPS_Default_Cost_Rate__c</field>
         <readable>true</readable>
     </fieldPermissions>
-    <applicationVisibilities>
-        <application>FreelanceOps</application>
-        <visible>true</visible>
-    </applicationVisibilities>
     <fieldPermissions>
         <editable>true</editable>
         <field>FOPS_Time_Entry__c.FOPS_Time_Entry_Start__c</field>
@@ -146,4 +142,8 @@
         <field>FOPS_Time_Entry__c.FOPS_Billable_Amount__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <applicationVisibilities>
+        <application>FreelanceOps</application>
+        <visible>true</visible>
+    </applicationVisibilities>
 </PermissionSet>
