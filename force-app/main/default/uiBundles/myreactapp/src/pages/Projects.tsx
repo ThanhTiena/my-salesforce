@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import {
   Plus,
   Pencil,
+  Plug,
+  RefreshCw,
   Trash2,
   FolderKanban,
   Calendar,
@@ -12,6 +14,14 @@ import {
 import { useStore, useClientMap } from '@/lib/store';
 import type { Project } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/format';
+import {
+  useResource,
+  salesforceDataSource,
+  isSalesforceEnv,
+  type ResourceResult,
+  type SfAssignment,
+} from '@/data';
+import { LiveBadge, LiveStates } from '@/data/live-view';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import {
@@ -22,6 +32,12 @@ import {
   CardHeader,
   CardContent,
   CardFooter,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -107,6 +123,15 @@ export default function Projects() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleting, setDeleting] = useState<Project | null>(null);
 
+  // Live-Salesforce seam (evaluated at render, never module load).
+  const detected = useMemo(() => isSalesforceEnv(), []);
+  const [forced, setForced] = useState(false);
+  const live = detected || forced;
+  const sf = useResource<SfAssignment>({
+    salesforce: () => salesforceDataSource.listProjects(),
+    enabled: live,
+  });
+
   const noClients = data.clients.length === 0;
 
   // Tracked hours per project, derived from time entries.
@@ -190,16 +215,30 @@ export default function Projects() {
     setDeleting(null);
   }
 
+  // SF mode is read-first: list Assignments; keep local CRUD gated to standalone.
+  if (live) {
+    return (
+      <ProjectsLive sf={sf} detected={detected} onExit={() => setForced(false)} />
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
         title="Projects"
         description="Track every engagement from kickoff to delivery."
         actions={
-          <Button onClick={openCreate}>
-            <Plus />
-            New project
-          </Button>
+          <>
+            <LiveBadge live={false} className="self-center" />
+            <Button variant="outline" size="sm" onClick={() => setForced(true)}>
+              <Plug className="size-4" />
+              Connect
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus />
+              New project
+            </Button>
+          </>
         }
       />
 
@@ -522,6 +561,86 @@ function Meta({
         <dt className="text-xs text-muted-foreground">{label}</dt>
         <dd className="truncate font-medium text-foreground">{children}</dd>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Read-only Assignments view shown when running live in Salesforce (or after a
+ * standalone "Connect"). Mirrors the state handling in src/pages/Salesforce.tsx.
+ */
+function ProjectsLive({
+  sf,
+  detected,
+  onExit,
+}: {
+  sf: ResourceResult<SfAssignment>;
+  detected: boolean;
+  onExit: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Projects"
+        description="Assignments from your live Salesforce org."
+        actions={
+          <>
+            <LiveBadge live className="self-center" />
+            <Button variant="outline" size="sm" onClick={sf.reload}>
+              <RefreshCw className="size-4" />
+              Refresh
+            </Button>
+          </>
+        }
+      />
+
+      <Card className="py-0">
+        <CardContent className="px-0">
+          <LiveStates
+            result={sf}
+            cols={5}
+            onExit={detected ? undefined : onExit}
+            emptyMessage="Connected, but no Assignments were returned. Create Assignment records in Salesforce and they'll appear here instantly."
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Assignment</TableHead>
+                  <TableHead>Consultant</TableHead>
+                  <TableHead>End Client</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Hrs/wk</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sf.rows.map(a => (
+                  <TableRow key={a.id}>
+                    <TableCell className="font-medium text-foreground">
+                      {a.name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {a.consultant ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {a.endClient ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      {a.status ? <StatusBadge status={a.status} /> : '—'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {a.hoursPerWeek ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </LiveStates>
+        </CardContent>
+      </Card>
+
+      {/* TODO(salesforce-writes): creating / editing Assignments in SF mode needs
+          uiapi mutations. Full CRUD stays available in standalone/local mode; SF
+          mode is read-first for now. */}
     </div>
   );
 }

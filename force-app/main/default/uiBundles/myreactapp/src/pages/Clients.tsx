@@ -4,7 +4,9 @@ import {
   Mail,
   Pencil,
   Phone,
+  Plug,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   Users,
@@ -13,6 +15,14 @@ import {
 import { useStore } from '@/lib/store';
 import type { Client } from '@/lib/types';
 import { formatDate } from '@/lib/format';
+import {
+  useResource,
+  salesforceDataSource,
+  isSalesforceEnv,
+  type ResourceResult,
+  type SfAccount,
+} from '@/data';
+import { LiveBadge, LiveStates } from '@/data/live-view';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import {
@@ -84,6 +94,16 @@ export default function Clients() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ClientForm>(EMPTY_FORM);
+
+  // Live-Salesforce seam. `detected` is evaluated at render (never module load);
+  // `forced` lets a standalone user attempt the live query via "Connect".
+  const detected = useMemo(() => isSalesforceEnv(), []);
+  const [forced, setForced] = useState(false);
+  const live = detected || forced;
+  const sf = useResource<SfAccount>({
+    salesforce: () => salesforceDataSource.listClients(),
+    enabled: live,
+  });
 
   const projectCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -165,16 +185,31 @@ export default function Clients() {
     toast.success(`Deleted ${client.name}`);
   }
 
+  // Live Salesforce mode is read-first: show Accounts, keep local CRUD gated to
+  // standalone mode below.
+  if (live) {
+    return (
+      <ClientsLive sf={sf} detected={detected} onExit={() => setForced(false)} />
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
         title="Clients"
         description="Everyone you work with, in one place."
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="size-4" />
-            Add client
-          </Button>
+          <>
+            <LiveBadge live={false} className="self-center" />
+            <Button variant="outline" size="sm" onClick={() => setForced(true)}>
+              <Plug className="size-4" />
+              Connect
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="size-4" />
+              Add client
+            </Button>
+          </>
         }
       />
 
@@ -409,6 +444,83 @@ export default function Clients() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * Read-only Accounts view shown when running live in Salesforce (or after a
+ * standalone "Connect"). Mirrors the state handling in src/pages/Salesforce.tsx.
+ */
+function ClientsLive({
+  sf,
+  detected,
+  onExit,
+}: {
+  sf: ResourceResult<SfAccount>;
+  detected: boolean;
+  onExit: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Clients"
+        description="Accounts from your live Salesforce org."
+        actions={
+          <>
+            <LiveBadge live className="self-center" />
+            <Button variant="outline" size="sm" onClick={sf.reload}>
+              <RefreshCw className="size-4" />
+              Refresh
+            </Button>
+          </>
+        }
+      />
+
+      <Card>
+        <CardContent className="px-0">
+          <LiveStates
+            result={sf}
+            cols={4}
+            onExit={detected ? undefined : onExit}
+            emptyMessage="Connected, but no Accounts were returned. Add Accounts in Salesforce and they'll appear here instantly."
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Account</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Health</TableHead>
+                  <TableHead>Phone</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sf.rows.map(a => (
+                  <TableRow key={a.id}>
+                    <TableCell className="font-medium text-foreground">
+                      {a.name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {a.role ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      {a.health ? <StatusBadge status={a.health} /> : '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {a.phone ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </LiveStates>
+        </CardContent>
+      </Card>
+
+      {/* TODO(salesforce-writes): creating / editing Accounts in SF mode needs
+          uiapi mutations (see salesforceDataSource.updateClientHealth for the
+          pattern). Full CRUD stays available in standalone/local mode; SF mode
+          is read-first for now. */}
     </div>
   );
 }

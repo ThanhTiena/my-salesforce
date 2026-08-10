@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import {
   Plus,
   Pencil,
+  Plug,
+  RefreshCw,
   Trash2,
   FileText,
   CheckCircle2,
@@ -19,6 +21,14 @@ import {
   effectiveInvoiceStatus,
   todayISO,
 } from '@/lib/format';
+import {
+  useResource,
+  salesforceDataSource,
+  isSalesforceEnv,
+  type ResourceResult,
+  type SfInvoice,
+} from '@/data';
+import { LiveBadge, LiveStates } from '@/data/live-view';
 
 import { PageHeader } from '@/components/page-header';
 import { StatCard } from '@/components/stat-card';
@@ -101,6 +111,15 @@ export default function Invoices() {
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([blankLine()]);
+
+  // Live-Salesforce seam (evaluated at render, never module load).
+  const detected = useMemo(() => isSalesforceEnv(), []);
+  const [forced, setForced] = useState(false);
+  const live = detected || forced;
+  const sf = useResource<SfInvoice>({
+    salesforce: () => salesforceDataSource.listInvoices(),
+    enabled: live,
+  });
 
   const stats = useMemo(() => {
     let outstanding = 0;
@@ -259,16 +278,30 @@ export default function Invoices() {
     setOpen(false);
   }
 
+  // SF mode is read-first: list Orders; keep local CRUD gated to standalone.
+  if (live) {
+    return (
+      <InvoicesLive sf={sf} detected={detected} onExit={() => setForced(false)} />
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
         title="Invoices"
         description="Bill clients and track what you're owed."
         actions={
-          <Button className="cursor-pointer" onClick={openCreate}>
-            <Plus />
-            New invoice
-          </Button>
+          <>
+            <LiveBadge live={false} className="self-center" />
+            <Button variant="outline" size="sm" onClick={() => setForced(true)}>
+              <Plug className="size-4" />
+              Connect
+            </Button>
+            <Button className="cursor-pointer" onClick={openCreate}>
+              <Plus />
+              New invoice
+            </Button>
+          </>
         }
       />
 
@@ -616,6 +649,86 @@ export default function Invoices() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * Read-only Orders view shown when running live in Salesforce (or after a
+ * standalone "Connect"). Mirrors the state handling in src/pages/Salesforce.tsx.
+ */
+function InvoicesLive({
+  sf,
+  detected,
+  onExit,
+}: {
+  sf: ResourceResult<SfInvoice>;
+  detected: boolean;
+  onExit: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Invoices"
+        description="Orders from your live Salesforce org."
+        actions={
+          <>
+            <LiveBadge live className="self-center" />
+            <Button variant="outline" size="sm" onClick={sf.reload}>
+              <RefreshCw className="size-4" />
+              Refresh
+            </Button>
+          </>
+        }
+      />
+
+      <Card className="shadow-sm">
+        <CardContent className="px-0">
+          <LiveStates
+            result={sf}
+            cols={5}
+            onExit={detected ? undefined : onExit}
+            emptyMessage="Connected, but no Orders were returned. Create Order records in Salesforce and they'll appear here instantly."
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Number</TableHead>
+                  <TableHead>Account</TableHead>
+                  <TableHead>Due</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sf.rows.map(inv => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="font-medium text-foreground">
+                      {inv.number ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {inv.account ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(inv.dueDate ?? undefined)}
+                    </TableCell>
+                    <TableCell>
+                      {inv.status ? <StatusBadge status={inv.status} /> : '—'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {inv.total != null ? formatCurrency(inv.total) : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </LiveStates>
+        </CardContent>
+      </Card>
+
+      {/* TODO(salesforce-writes): creating / editing Orders in SF mode needs
+          uiapi mutations. Full CRUD stays available in standalone/local mode; SF
+          mode is read-first for now. */}
     </div>
   );
 }
