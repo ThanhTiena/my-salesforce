@@ -194,13 +194,27 @@ currencies means six entries per product.
 
 ---
 
-## 6. What is not yet built
+## 6. What is built vs not yet built
 
-Apex service layer (`CurrencyService`, `SequenceService`,
-`RateNormalisationService`, `Logger`, `FOPS_FieldSecurityTest`), Flows, the
+**Built — Apex automation for Time Entry financials** (trigger → handler →
+service → selector, with a bypass custom setting and tests):
+- `FOPS_Time_Entry_Trigger` → `FOPS_TimeEntryTriggerHandler` →
+  `FOPS_TimeEntryService` (`applyFinancials`) → `FOPS_TimesheetSelector`.
+- On insert it **freezes** the Assignment's bill/cost rate onto the entry
+  (`FOPS_Bill_Rate_Snapshot__c`, `FOPS_Cost_Rate_Snapshot__c`) and stores
+  `FOPS_Billable_Amount__c = hours × bill-rate snapshot × multiplier` (0 when
+  non-billable). On update it keeps the frozen snapshot and only recomputes the
+  amount. The selector reads the confidential rate in **system context by
+  design** (the target snapshot fields are FLS-hidden from sub-contractors).
+- Bypass via the `FOPS_Trigger_Setting__c.FOPS_Bypass_Time_Entry__c` hierarchy
+  custom setting (e.g. for data loads). Covered by `FOPS_TimeEntryServiceTest`.
+- MVP assumes an hourly rate; add `RateNormalisationService` for daily/weekly/
+  monthly units.
+
+**Not yet built:** `CurrencyService`, `SequenceService` (gapless numbering),
+`RateNormalisationService`, `Logger`, `FOPS_FieldSecurityTest`, Flows, the
 `timeLogger` LWC, invoice generation/PDF, reports and dashboards, and
-Email-to-Case. See the handoff prompt and blueprint docs for the full backlog
-and dependency order.
+Email-to-Case. See the handoff prompt and blueprint docs for the full backlog.
 
 ---
 

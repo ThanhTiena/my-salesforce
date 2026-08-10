@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FOPS_Bypass_Time_Entry__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, the FOPS_Time_Entry__c trigger skips rate/amount stamping.</description>
+    <inlineHelpText>Turn off Time Entry rate/amount automation (e.g. for a data load).</inlineHelpText>
+    <label>Bypass Time Entry</label>
+    <type>Checkbox</type>
+</CustomField>
